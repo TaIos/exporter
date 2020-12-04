@@ -1,13 +1,17 @@
-= Semestral work from NI-PYT in 2020/21
+= Semestral work from NI-PYT in 2020/21 at FIT CTU
+
 * CTU username: `saframa6`
+* CTU mail: saframa6@fit.cvut.cz
 
-== Goal
+⚠️ Currently waiting for the API key from https://beta.openai.com/?demo=5[Academic Access Application] to access GPT-3. In case it will not be granted or will be granted later, <<alternative>> will be considered as an output of my semestral work.
 
-* TEXT to HTML translation using GPT-3.
+== TEXT to HTML translation using GPT-3
 
-In this work I use https://en.wikipedia.org/wiki/GPT-3[GPT-3] to translate arbitrary input text to HTML. Example output might look like https://twitter.com/sharifshameem/status/1282676454690451457[this].
+=== Goal
 
-== Requirements for grading
+In this work, I use https://en.wikipedia.org/wiki/GPT-3[GPT-3] to translate arbitrary input text to HTML. Example output might look like https://twitter.com/sharifshameem/status/1282676454690451457[this].
+
+=== Requirements for grading
 
 1. Use `requests` for communicating with GPT-3 API
 2. Create command line interface that accepts input text and produces HTML
@@ -17,4 +21,13 @@ In this work I use https://en.wikipedia.org/wiki/GPT-3[GPT-3] to translate arbit
 	. Internal funcionality
 5. Make it availible on Pypi as a package
 6. Document project using docstrings in code and this README
-7. Create GUI using `PySide`, that in addition to the CLI interface renders HTML output and displayes it to the user
+7. Create GUI using `PySide`, which in addition to the CLI interface renders HTML output and displays it to the user
+
+[#alternative]
+== Alternative
+TBA
+
+=== Goal
+
+=== Requirements for grading
+

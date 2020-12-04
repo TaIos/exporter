@@ -1,4 +1,4 @@
-= Semestral work from NI-PYT in 2020/21 at FIT CTU
+= Semestral work from NI-PYT in 2020/21 at https://old.fit.cvut.cz/en[FIT CTU]
 
 * CTU username: `saframa6`
 * CTU mail: saframa6@fit.cvut.cz

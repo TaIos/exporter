@@ -14,14 +14,14 @@ In this work, I use https://en.wikipedia.org/wiki/GPT-3[GPT-3] to translate arbi
 === Requirements for grading
 
 1. Use `requests` for communicating with GPT-3 API
-2. Create command line interface that accepts input text and produces HTML
-3. Load configuration from file using `configparser`, at least allowing to use own GPT-3 API key
-4. Write tests using `pytest`, but also allow to run them using `tox`
-	. Fake GPT-3 API using `betamax`
+2. Create command line interface that accepts input text and produces HTML/CSS
+3. Load configuration from file using `configparser` (or similar), at least allowing to use own GPT-3 API key
+4. Write tests using `pytest`, also allow to run them using `tox`
+	. Fake GPT-3 API using `betamax` (or similar)
 	. Internal functionality
-5. Make it available on Pypi as a package
-6. Document project using docstrings in code and this README
-7. Create GUI using `PySide`, which in addition to the CLI interface renders HTML output and displays it to the user
+5. Make it available on PyPI as a package under a free software license
+6. Document project using docstrings in code and this README, generate Sphinx docuementation via a tox environemnt
+7. Create GUI using `PySide` or `PyQt`, which in addition to the CLI interface renders HTML output and displays it to the user
 
 [#alternative]
 == Topic 2: GitLab to GitHub project export
@@ -35,15 +35,15 @@ Sometimes I need to export projects from FIT CTU GitLab to GitHub. It can be don
 
 
 === Requirements for grading
-. Use `requests` for communicating with GitLab and GitHub API
-. Use some python git wrapper or git directly to manipulate with cloned repositories (eg setting different upstream)
-. Create command line interface, which will at least allow
+. Use `requests` (or some asyncio alternative, such as `aiohttp` or `httpx`) for communicating with GitLab and GitHub API
+. Use some Python git wrapper or git directly to manipulate with cloned repositories (eg setting different upstream)
+. Create a command line interface, which will at least allow
 	.. Specify a list of repository names for exporting
 	.. Set policy for conflicts, eg project with the same name already exists on GitHub => overwrite
 . Inform user about the exporting process by terminal output and also store this information in logs
-. Load configuration from a file using `configparser`, at least allowing to use own API keys
-. Write tests using `pytest`, but also allow to run them using `tox`
+. Load configuration from a file using `configparser` (or similar), at least allowing to use own API keys
+. Write tests using `pytest`, also allow to run them using `tox`
 	.. Fake both API for testing
 	.. Test internal functionality
-. Make it available on Pypi
-. Document project using docstrings in code and this README
+. Make it available on PyPI as a package under a free software license
+. Document project using docstrings in code and this README, generate Sphinx docuementation via a tox environemnt

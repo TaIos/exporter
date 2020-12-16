@@ -17,17 +17,18 @@ Sometimes I need to export projects from FIT CTU GitLab to GitHub. It can be don
 
 
 === Requirements for grading
-. Use `requests` for communicating with GitLab and GitHub API
-. Use some python git wrapper or git directly to manipulate with cloned repositories (eg setting different upstream)
-. Create command line interface, which will at least allow
+. Use `requests` (or some asyncio alternative, such as `aiohttp` or `httpx`) for communicating with GitLab and GitHub API
+. Use some Python git wrapper or git directly to manipulate with cloned repositories (eg setting different upstream)
+. Create a command line interface, which will at least allow
 	.. Specify a list of repository names for exporting
 	.. Set policy for conflicts, eg project with the same name already exists on GitHub => overwrite
 . Inform user about the exporting process by terminal output and also store this information in logs
-. Load configuration from a file using `configparser`, at least allowing to use own API keys
-. Write tests using `pytest`, but also allow to run them using `tox`
+. Load configuration from a file using `configparser` (or similar), at least allowing to use own API keys
+. Write tests using `pytest`, also allow to run them using `tox`
 	.. Fake both API for testing
 	.. Test internal functionality
-. Make it available on Pypi
-. Document project using docstrings in code and this README
+. Make it available on PyPI as a package under a free software license
+. Document project using docstrings in code and this README, generate Sphinx docuementation via a tox environemnt
+
 
 = Documentation

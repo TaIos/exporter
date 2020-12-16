@@ -140,3 +140,4 @@ cython_debug/
 # ADDED LATER
 
 /.idea/
+__venv__

@@ -143,3 +143,4 @@ cython_debug/
 __venv__
 create_version.sh
 logs/
+/examples/config

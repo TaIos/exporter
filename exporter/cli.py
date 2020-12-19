@@ -2,7 +2,7 @@ import click
 import configparser
 
 from exporter.logic import Exporter, GitLabClient, GitHubClient, TaskStream
-from exporter.config import ConfigLoader
+from exporter.config import ConfigLoader, ProjectLoader
 
 
 class ExporterLogger:
@@ -11,7 +11,7 @@ class ExporterLogger:
         self.log_dir = log_dir or 'logs'
 
 
-def load_config(ctx, param, value):
+def load_config_file(ctx, param, value):
     try:
         cfg = configparser.ConfigParser()
         cfg.read_file(value)
@@ -20,15 +20,23 @@ def load_config(ctx, param, value):
         raise click.BadParameter(f'Failed to load the configuration!')
 
 
+def load_projects_file(ctx, param, value):
+    try:
+        return ProjectLoader.load(value)
+    except Exception as e:
+        raise click.BadParameter(f'Failed to load the projects file!')
+
+
 @click.command(name='exporter')
 @click.version_option(version='v0.0.0')
-@click.option('-c', '--config', type=click.File(mode='r'), callback=load_config,
+@click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
               help='Exporter configuration file.', required=True)
-def main(config):
+@click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
+              help='Project names to export', required=True)
+def main(config, projects):
     """An universal tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
-    tasks = TaskStream()
 
     exporter = Exporter(
         gitlab=gitlab,
@@ -37,5 +45,5 @@ def main(config):
     )
 
     exporter.run(
-        task_stream=tasks
+        projects=projects
     )

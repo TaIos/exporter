@@ -1,4 +1,6 @@
 import requests
+import git
+import re
 
 from exporter.helpers import ensure_tmp_dir
 
@@ -79,8 +81,11 @@ class GitLabClient:
     def user(self):
         return self._paginated_json_get(f'{self.API}/user')
 
-    def owned_projects(self):
+    def get_all_owned_projects(self):
         return self._paginated_json_get(f'{self.API}/projects', params={'owned': True})
+
+    def search_owned_projects(self, search):
+        return self._paginated_json_get(f'{self.API}/projects', params={'owned': True, 'search': search})
 
 
 class TaskStream:
@@ -94,6 +99,21 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def run(self, task_stream, tmp_dir=None):
+    def _fetch_gitlab_project(self, project_name, tmp):
+        r = self.gitlab.search_owned_projects(project_name)
+        if len(r) == 0:
+            raise ValueError(f'Multiple projects found for {project_name}')
+        if len(r[0]) == 0:
+            raise ValueError(f'No project found for {project_name}')
+        json = r[0]
+
+        username = json['owner']['username']
+        password = self.gitlab.token
+        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', json['http_url_to_repo'])
+
+        return git.Git(tmp).clone(auth_https_url)
+
+    def run(self, projects, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
-            pass
+            for project_name in projects:
+                repo = self._fetch_gitlab_project(project_name, tmp)

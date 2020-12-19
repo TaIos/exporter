@@ -18,3 +18,10 @@ class ConfigLoader:
             gitlab_token=cfg.get('gitlab', 'token'),
         )
         return config
+
+
+class ProjectLoader:
+
+    @classmethod
+    def load(cls, project_file):
+        return [x.strip() for x in project_file.read().splitlines()]

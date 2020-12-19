@@ -53,8 +53,10 @@ class GitLabClient:
     """
     This class can communicate with the GitLab API
     just give it a token and go.
+
+    API documentation: https://gitlab.fit.cvut.cz/help/api/README.md
     """
-    API = 'https://gitlab.fit.cvut.cz/api/v4/'
+    API = 'https://gitlab.fit.cvut.cz/api/v4'
 
     def __init__(self, token, session=None):
         self.token = token
@@ -63,7 +65,7 @@ class GitLabClient:
         self.session.auth = self._token_auth
 
     def _token_auth(self, req):
-        req.headers['Authorization'] = 'token ' + self.token
+        req.headers['Private-Token'] = self.token
         return req
 
     def _paginated_json_get(self, url, params=None):
@@ -77,22 +79,8 @@ class GitLabClient:
     def user(self):
         return self._paginated_json_get(f'{self.API}/user')
 
-    def commits(self, reposlug, params):
-        return self.get(url=f'{self.API}/repos/{reposlug}/commits', params=params)
-
-    def statuses(self, reposlug, ref):
-        return self.get(url=f'{self.API}/repos/{reposlug}/commits/{ref}/statuses')
-
-    def add_status(self, reposlug, ref, status):
-        response = self.session.post(
-            url=f'{self.API}/repos/{reposlug}/commits/{ref}/statuses',
-            json=status
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def get(self, url: str, params=None):
-        return self._paginated_json_get(url=url, params=params)
+    def owned_projects(self):
+        return self._paginated_json_get(f'{self.API}/projects', params={'owned': True})
 
 
 class TaskStream:

@@ -116,7 +116,7 @@ class Exporter:
         print(auth_https_url)
         return git.Repo.clone_from(auth_https_url, tmp / project_name)
 
-    def run(self, projects, tmp_dir=None):
+    def run(self, projects, force_overwrite=False, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             for project_name in projects:
                 repo = self._fetch_gitlab_project(project_name, tmp)

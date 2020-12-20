@@ -33,14 +33,12 @@ def load_projects_file(ctx, param, value):
               help='Exporter configuration file.', required=True)
 @click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
               help='Project names to export', required=True)
-def main(config, projects):
+@click.option('-f', '--force', default=False, show_default=True, is_flag=True,
+              help='Overwrite existing directories.')
+def main(config, projects, force):
     """An universal tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
-
-    github.delete_repo(repo='committee-basic', owner='LQpKH20')
-    github.delete_repo(repo='657757dd', owner='LQpKH20')
-    return
 
     exporter = Exporter(
         gitlab=gitlab,
@@ -49,5 +47,6 @@ def main(config, projects):
     )
 
     exporter.run(
-        projects=projects
+        projects=projects,
+        force_overwrite=force
     )

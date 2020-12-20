@@ -1,6 +1,8 @@
 import requests
-import git
 import re
+
+# API reference: https://gitpython.readthedocs.io/en/stable/reference.html
+import git
 
 from exporter.helpers import ensure_tmp_dir
 
@@ -111,10 +113,20 @@ class Exporter:
         username = json['owner']['username']
         password = self.gitlab.token
         auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', json['http_url_to_repo'])
-
-        return git.Git(tmp).clone(auth_https_url)
+        print(auth_https_url)
+        return git.Repo.clone_from(auth_https_url, tmp / project_name)
 
     def run(self, projects, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             for project_name in projects:
                 repo = self._fetch_gitlab_project(project_name, tmp)
+
+                owner = "LQpKH20"
+
+                # self.github.delete_repo(project_name, owner)
+                self.github.create_repo(project_name)
+                auth_https_url = f'https://{owner}:{self.github.token}@github.com/{owner}/{project_name}.git'
+                print(auth_https_url)
+
+                remote = repo.create_remote(f'github_{project_name}', auth_https_url)
+                remote.push()

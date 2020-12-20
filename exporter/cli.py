@@ -1,5 +1,6 @@
 import click
 import configparser
+from requests import HTTPError
 
 from exporter.logic import Exporter, GitLabClient, GitHubClient, TaskStream
 from exporter.config import ConfigLoader, ProjectLoader
@@ -27,6 +28,22 @@ def load_projects_file(ctx, param, value):
         raise click.BadParameter(f'Failed to load the projects file!')
 
 
+def delete_all_github_repos(ctx, param, value):
+    if value:
+        try:
+            if click.confirm('Do you really want to delete all github repos?'):
+                token = click.prompt('Enter github token', hide_input=True)
+                github = GitHubClient(token)
+                for repo in github.get_all_repos():
+                    repo_name, owner = repo['name'], repo['owner']['login']
+                    github.delete_repo(repo_name, owner)
+                    print(f'Repository {repo_name} deleted.')
+        except HTTPError as e:
+            print(e)
+        finally:
+            ctx.exit()
+
+
 @click.command(name='exporter')
 @click.version_option(version='v0.0.0')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
@@ -35,6 +52,9 @@ def load_projects_file(ctx, param, value):
               help='Project names to export', required=True)
 @click.option('-f', '--force', default=False, show_default=True, is_flag=True,
               help='Overwrite existing directories.')
+@click.option('--purge-gh', default=False, show_default=True, is_flag=True,
+              is_eager=True, expose_value=False, callback=delete_all_github_repos,
+              help='Dangerous, this deletes all GitHub repos!')
 def main(config, projects, force):
     """An universal tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)

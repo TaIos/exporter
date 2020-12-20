@@ -45,6 +45,9 @@ class GitHubClient:
     def user(self):
         return self._paginated_json_get(f'{self.API}/user')
 
+    def get_all_repos(self):
+        return self._paginated_json_get(f'{self.API}/user/repos')
+
     def delete_repo(self, repo_name, owner):
         self._delete(f'{self.API}/repos/{owner}/{repo_name}')
 

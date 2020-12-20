@@ -32,6 +32,10 @@ class GitHubClient:
             json += self._paginated_json_get(r.links['next']['url'], params)
         return json
 
+    def _post(self, url, data=None):
+        r = self.session.post(url=url, json=data)
+        r.raise_for_status()
+
     def _delete(self, url):
         r = self.session.delete(url=url)
         r.raise_for_status()
@@ -39,8 +43,13 @@ class GitHubClient:
     def user(self):
         return self._paginated_json_get(f'{self.API}/user')
 
-    def delete_repo(self, repo, owner):
-        self._delete(f'{self.API}/repos/{owner}/{repo}')
+    def delete_repo(self, repo_name, owner):
+        self._delete(f'{self.API}/repos/{owner}/{repo_name}')
+
+    def create_repo(self, repo_name, data=None):
+        data = data or dict()
+        data['name'] = repo_name
+        self._post(f'{self.API}/user/repos', data)
 
 
 class GitLabClient:

@@ -38,6 +38,10 @@ def main(config, projects):
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
 
+    github.delete_repo(repo='committee-basic', owner='LQpKH20')
+    github.delete_repo(repo='657757dd', owner='LQpKH20')
+    return
+
     exporter = Exporter(
         gitlab=gitlab,
         github=github,

@@ -122,6 +122,7 @@ class Exporter:
     def run(self, projects, force_overwrite=False, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             for project_name in projects:
+                self.logger.info(project_name)
                 repo = self._fetch_gitlab_project(project_name, tmp)
 
                 owner = "LQpKH20"

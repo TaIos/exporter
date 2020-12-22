@@ -1,15 +1,28 @@
 import click
 import configparser
+import logging
+import pathlib
+import time
 from requests import HTTPError
 
-from exporter.logic import Exporter, GitLabClient, GitHubClient, TaskStream
+from exporter.logic import Exporter, GitLabClient, GitHubClient
 from exporter.config import ConfigLoader, ProjectLoader
 
 
 class ExporterLogger:
 
-    def __init__(self, log_dir=None):
-        self.log_dir = log_dir or 'logs'
+    def __init__(self, debug=False, log_dir=None):
+        self.log_dir = pathlib.Path(log_dir or 'logs')
+        self.log_dir.mkdir(exist_ok=True, parents=True)
+        self.level = logging.DEBUG if debug else logging.INFO
+        logging.basicConfig(filename=(self.log_dir / time.strftime("%d%m%Y_%H%M%S")).with_suffix(".log"),
+                            filemode='w',
+                            level=self.level,
+                            format='%(asctime)s: %(message)s',
+                            datefmt='%d-%m-%Y %H:%M:%S %Z %z')
+
+    def info(self, msg):
+        logging.info(msg)
 
 
 def load_config_file(ctx, param, value):
@@ -55,7 +68,9 @@ def delete_all_github_repos(ctx, param, value):
 @click.option('--purge-gh', default=False, show_default=True, is_flag=True,
               is_eager=True, expose_value=False, callback=delete_all_github_repos,
               help='Dangerous, this deletes all GitHub repos!')
-def main(config, projects, force):
+@click.option('--debug', default=False, is_flag=True,
+              help='Enable debug logs.')
+def main(config, projects, force, debug):
     """An universal tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
@@ -63,7 +78,7 @@ def main(config, projects, force):
     exporter = Exporter(
         gitlab=gitlab,
         github=github,
-        logger=ExporterLogger()
+        logger=ExporterLogger(debug=debug)
     )
 
     exporter.run(

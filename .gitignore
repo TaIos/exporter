@@ -144,3 +144,4 @@ __venv__
 create_version.sh
 logs/
 /examples/config
+/logs/

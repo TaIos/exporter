@@ -1,0 +1,7 @@
+include LICENSE
+include README.adoc
+include examples/*.sample
+include tox.ini
+graft tests/
+global-exclude __pycache__
+global-exclude *.py[co]

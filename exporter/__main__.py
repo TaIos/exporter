@@ -1,3 +1,3 @@
-from exporter.cli import main
+from .cli import main
 
 main(prog_name='exporter')

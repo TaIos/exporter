@@ -5,8 +5,8 @@ import pathlib
 import time
 from requests import HTTPError
 
-from exporter.logic import Exporter, GitLabClient, GitHubClient
-from exporter.config import ConfigLoader, ProjectLoader
+from .logic import Exporter, GitLabClient, GitHubClient
+from .config import ConfigLoader, ProjectLoader
 
 
 class ExporterLogger:
@@ -45,7 +45,7 @@ def delete_all_github_repos(ctx, param, value):
     if value:
         try:
             if click.confirm('Do you really want to delete all github repos?'):
-                token = click.prompt('Enter github token', hide_input=True)
+                token = click.prompt('Enter GitHub token', hide_input=True)
                 github = GitHubClient(token)
                 for repo in github.get_all_repos():
                     repo_name, owner = repo['name'], repo['owner']['login']
@@ -58,7 +58,7 @@ def delete_all_github_repos(ctx, param, value):
 
 
 @click.command(name='exporter')
-@click.version_option(version='v0.0.0')
+@click.version_option(version='0.0.1')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
               help='Exporter configuration file.', required=True)
 @click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
@@ -71,7 +71,7 @@ def delete_all_github_repos(ctx, param, value):
 @click.option('--debug', default=False, is_flag=True,
               help='Enable debug logs.')
 def main(config, projects, force, debug):
-    """An universal tool for exporting projects from FIT CTU GitLab to GitHub"""
+    """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
 

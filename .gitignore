@@ -141,7 +141,7 @@ cython_debug/
 
 /.idea/
 __venv__
-create_version.sh
 logs/
-/examples/config
-/logs/
+examples/*
+!examples/*.sample
+

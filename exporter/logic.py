@@ -4,7 +4,7 @@ import re
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
 
-from exporter.helpers import ensure_tmp_dir
+from .helpers import ensure_tmp_dir
 
 
 class GitHubClient:

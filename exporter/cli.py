@@ -58,7 +58,7 @@ def delete_all_github_repos(ctx, param, value):
 
 
 @click.command(name='exporter')
-@click.version_option(version='0.0.1')
+@click.version_option(version='0.0.2')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
               help='Exporter configuration file.', required=True)
 @click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,

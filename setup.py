@@ -1,14 +1,14 @@
 from setuptools import setup, find_packages
 
-with open('README.adoc') as f:
+with open('README.rst') as f:
     long_description = ''.join(f.readlines())
 
 setup(
     name='fit-ctu-gitlab-exporter',
-    version='0.0.1',
+    version='0.0.2',
     description='Tool for exporting projects from FIT CTU GitLab to GitHub',
     long_description=long_description,
-    long_description_content_type='text/plain',
+    long_description_content_type='text/x-rst',
     author='Martin Šafránek',
     author_email='gismocz@gmail.com',
     keywords='github,gitlab,synchronization,git,fit ctu',

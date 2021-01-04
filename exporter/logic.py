@@ -117,7 +117,12 @@ class Exporter:
         password = self.gitlab.token
         auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', json['http_url_to_repo'])
         print(auth_https_url)
-        return git.Repo.clone_from(auth_https_url, tmp / project_name)
+        repo = git.Repo.clone_from(auth_https_url, tmp / project_name)
+        result = git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])
+        print("====================")
+        print(result)
+        print("====================")
+        return repo
 
     def run(self, projects, force_overwrite=False, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:

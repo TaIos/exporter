@@ -44,10 +44,16 @@ def load_projects_file(ctx, param, value):
 def delete_all_github_repos(ctx, param, value):
     if value:
         try:
-            if click.confirm('Do you really want to delete all GitHub repos?'):
-                token = click.prompt('Enter GitHub token with admin access', hide_input=True)
-                github = GitHubClient(token)
-                for repo in github.get_all_repos():
+            token = click.prompt('Enter GitHub token with admin access', hide_input=True)
+            github = GitHubClient(token)
+            repos = github.get_all_repos()
+            if len(repos) == 0:
+                print(f'There are no repositories to delete for login {github.login}.')
+                return
+            print(f'{len(repos)} repositories with login {github.login} will be deleted:'
+                  f' {list(map(lambda x: x.get("name"), repos))}')
+            if click.confirm('Do you really want to continue?'):
+                for repo in repos:
                     repo_name, owner = repo['name'], repo['owner']['login']
                     github.delete_repo(repo_name, owner)
                     print(f'Repository {repo_name} deleted.')

@@ -21,6 +21,13 @@ class GitHubClient:
         self.session = session or requests.Session()
         self.session.headers = {'User-Agent': 'exporter'}
         self.session.auth = self._token_auth
+        self._login = None
+
+    @property
+    def login(self):
+        if self._login is None:
+            self._login = self.user().get('login')
+        return self._login
 
     def _token_auth(self, req):
         req.headers['Authorization'] = 'token ' + self.token

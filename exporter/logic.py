@@ -1,5 +1,6 @@
 import requests
 import re
+from abc import ABC
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
@@ -103,8 +104,50 @@ class GitLabClient:
         return self._paginated_json_get(f'{self.API}/projects', params={'owned': True, 'search': search})
 
 
-class TaskStream:
-    pass
+class Task(ABC):
+
+    def run(self):
+        pass
+
+
+class TaskFetchGitlabProject(Task):
+
+    def __init__(self, gitlab, project_name, base_dir):
+        self.gitlab = gitlab
+        self.project_name = project_name
+        self.base_dir = base_dir
+
+    def run(self):
+        r = self.gitlab.search_owned_projects(self.project_name)
+        if len(r) == 0:
+            raise ValueError(f'Multiple projects found for {self.project_name}')
+        if len(r[0]) == 0:
+            raise ValueError(f'No project found for {self.project_name}')
+        json = r[0]
+
+        username = json['owner']['username']
+        password = self.gitlab.token
+        url = json['http_url_to_repo']
+        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
+        repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
+        git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])  # fetching all references
+        return repo
+
+
+class TaskPushToGitHub(Task):
+
+    def __init__(self, github, git_repo, repo_name):
+        self.github = github
+        self.git_repo = git_repo
+        self.repo_name = repo_name
+
+    def run(self):
+        self.github.create_repo(self.repo_name)
+        owner = self.github.login
+        password = self.github.token
+        auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
+        remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
+        remote.push()
 
 
 class Exporter:
@@ -114,26 +157,9 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def _fetch_gitlab_project(self, project_name, destination_base_dir):
-        r = self.gitlab.search_owned_projects(project_name)
-        if len(r) == 0:
-            raise ValueError(f'Multiple projects found for {project_name}')
-        if len(r[0]) == 0:
-            raise ValueError(f'No project found for {project_name}')
-        json = r[0]
-
-        username = json['owner']['username']
-        password = self.gitlab.token
-        url = json['http_url_to_repo']
-        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
-        repo = git.Repo.clone_from(auth_https_url, destination_base_dir / project_name)
-        git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all']) # fetching all references
-        return repo
-
     def run(self, projects, force_overwrite=False, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             for project_name in projects:
-
                 # T1: fetch all projects (in parallel), report errors after this transaction
                 # T2: for each project, create corresponding GitHub repo (in parallel)
                 # T3: upload downloaded projects to GitHub (parallel)
@@ -142,14 +168,10 @@ class Exporter:
                 # a) rollback feature -> remove unused GitHub repos
                 # b) delete files from disc
                 # c) concurrency issues -> logging, reporting to user (report after each transaction ??)
+                # d) check for already existing github repository names
 
-                self.logger.info(project_name)
-                repo = self._fetch_gitlab_project(project_name, tmp)
-                self.github.create_repo(project_name)
+                task = TaskFetchGitlabProject(self.gitlab, project_name, tmp)
+                repo = task.run()
 
-                owner = self.github.login
-                password = self.github.token
-                auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{project_name}.git'
-
-                remote = repo.create_remote(f'github_{project_name}', auth_https_url)
-                remote.push()
+                task2 = TaskPushToGitHub(self.github, repo, project_name)
+                task2.run()

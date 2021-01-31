@@ -25,6 +25,7 @@ class GitHubClient:
 
     @property
     def login(self):
+        """Return user login name associated with token"""
         if self._login is None:
             self._login = self.user().get('login')
         return self._login
@@ -50,6 +51,7 @@ class GitHubClient:
         r.raise_for_status()
 
     def user(self):
+        """Return all user information"""
         return self._paginated_json_get(f'{self.API}/user')
 
     def get_all_repos(self):
@@ -112,7 +114,7 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def _fetch_gitlab_project(self, project_name, tmp):
+    def _fetch_gitlab_project(self, project_name, destination_base_dir):
         r = self.gitlab.search_owned_projects(project_name)
         if len(r) == 0:
             raise ValueError(f'Multiple projects found for {project_name}')
@@ -122,27 +124,32 @@ class Exporter:
 
         username = json['owner']['username']
         password = self.gitlab.token
-        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', json['http_url_to_repo'])
-        print(auth_https_url)
-        repo = git.Repo.clone_from(auth_https_url, tmp / project_name)
-        result = git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])
-        print("====================")
-        print(result)
-        print("====================")
+        url = json['http_url_to_repo']
+        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
+        repo = git.Repo.clone_from(auth_https_url, destination_base_dir / project_name)
+        git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all']) # fetching all references
         return repo
 
     def run(self, projects, force_overwrite=False, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             for project_name in projects:
+
+                # T1: fetch all projects (in parallel), report errors after this transaction
+                # T2: for each project, create corresponding GitHub repo (in parallel)
+                # T3: upload downloaded projects to GitHub (parallel)
+
+                # TODO:
+                # a) rollback feature -> remove unused GitHub repos
+                # b) delete files from disc
+                # c) concurrency issues -> logging, reporting to user (report after each transaction ??)
+
                 self.logger.info(project_name)
                 repo = self._fetch_gitlab_project(project_name, tmp)
-
-                owner = "LQpKH20"
-
-                # self.github.delete_repo(project_name, owner)
                 self.github.create_repo(project_name)
-                auth_https_url = f'https://{owner}:{self.github.token}@github.com/{owner}/{project_name}.git'
-                print(auth_https_url)
+
+                owner = self.github.login
+                password = self.github.token
+                auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{project_name}.git'
 
                 remote = repo.create_remote(f'github_{project_name}', auth_https_url)
                 remote.push()

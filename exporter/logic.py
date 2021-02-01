@@ -1,7 +1,11 @@
+import sys
+from time import sleep
+
 import requests
 import re
 from threading import Thread
 from abc import ABC
+import os
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
@@ -153,21 +157,62 @@ class TaskPushToGitHub(TaskBase):
 
 class TaskExportProject(TaskBase):
 
-    def __init__(self, github, gitlab, project_name, base_dir, prefix):
+    def __init__(self, github, gitlab, project_name, base_dir, prefix, progress_bar):
         self.github = github
         self.gitlab = gitlab
         self.project_name = project_name
         self.base_dir = base_dir
         self.prefix = prefix
+        self.bar = progress_bar
 
     def run(self):
-        print(f'Export for project {self.project_name} --> START', flush=True)
+        self.bar.msg = 'FETCHING'
         fetch = TaskFetchGitlabProject(self.gitlab, self.project_name, self.base_dir)
         repo = fetch.run()
+        self.bar.progress = 0.5
 
+        self.bar.msg = 'PUSHING'
         push = TaskPushToGitHub(self.github, repo, self.prefix + self.project_name)
         push.run()
-        print(f'Export for project {self.project_name} --> DONE', flush=True)
+        self.bar.progress = 1.0
+        self.bar.msg = 'DONE'
+
+
+class TaskProgressBarPool(TaskBase):
+    def __init__(self, delay_sec=0.1, file=sys.stdout):
+        self.pool = []
+        self.delay_sec = delay_sec
+        self.file = file
+
+    def register(self, name):
+        bar = ProgressBar(progress=0, name=name, msg='')
+        self.pool.append(bar)
+        return bar
+
+    def run(self):
+        while True:
+            for bar in self.pool:
+                bar.render(self.file)
+            self.file.flush()
+            if all([x.is_done() for x in self.pool]):
+                break
+            sleep(self.delay_sec)
+            os.system('cls' if os.name == 'nt' else 'clear')
+
+
+class ProgressBar:
+
+    def __init__(self, progress, name, msg):
+        self.progress = progress
+        self.name = name
+        self.msg = msg
+
+    def render(self, file):
+        name = '[' + self.name + ']'
+        file.write(f'{name:<40} {str(self.progress):>5} {self.msg:>20}{os.linesep}')
+
+    def is_done(self):
+        return self.progress >= 1.0
 
 
 class Exporter:
@@ -179,7 +224,11 @@ class Exporter:
 
     def run(self, projects, force_overwrite=False, tmp_dir=None, prefix='github_'):
         with ensure_tmp_dir(tmp_dir) as tmp:
-            tasks = list(map(lambda name: TaskExportProject(self.github, self.gitlab, name, tmp, prefix), projects))
+            bar = TaskProgressBarPool()
+            tasks = list(
+                map(lambda name: TaskExportProject(self.github, self.gitlab, name, tmp, prefix, bar.register(name)),
+                    projects))
+            tasks.append(bar)
             self.exucute_tasks(tasks)
 
     def exucute_tasks(self, tasks):

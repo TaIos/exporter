@@ -1,11 +1,8 @@
-import sys
-from time import sleep
-
 import requests
 import re
 from threading import Thread
 from abc import ABC
-import os
+import enlighten
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
@@ -117,13 +114,16 @@ class TaskBase(ABC):
 
 class TaskFetchGitlabProject(TaskBase):
 
-    def __init__(self, gitlab, project_name, base_dir):
+    def __init__(self, gitlab, project_name, base_dir, bar):
         self.gitlab = gitlab
         self.project_name = project_name
         self.base_dir = base_dir
+        self.bar = bar
 
     def run(self):
+        self.bar.unit = 'Searching for project'
         r = self.gitlab.search_owned_projects(self.project_name)
+        self.bar.update()
         if len(r) == 0:
             raise ValueError(f'Multiple projects found for {self.project_name}')
         if len(r[0]) == 0:
@@ -134,85 +134,76 @@ class TaskFetchGitlabProject(TaskBase):
         password = self.gitlab.token
         url = json['http_url_to_repo']
         auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
+        self.bar.unit = 'Cloning GitLab repo'
         repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
+        self.bar.update()
+        self.bar.unit = 'Fetching GitLab LFS files'
         git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])  # fetching all references
+        self.bar.update()
+        self.bar.unit = ''
         return repo
 
 
 class TaskPushToGitHub(TaskBase):
 
-    def __init__(self, github, git_repo, repo_name):
+    def __init__(self, github, git_repo, repo_name, bar):
         self.github = github
         self.git_repo = git_repo
         self.repo_name = repo_name
+        self.bar = bar
 
     def run(self):
+        self.bar.unit = 'Creating GitHub repo'
         self.github.create_repo(self.repo_name)
+        self.bar.update()
         owner = self.github.login
         password = self.github.token
         auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
         remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
+        self.bar.unit = 'Pushing to GitHub'
         remote.push()
+        self.bar.update()
+        self.bar.unit = ''
 
 
 class TaskExportProject(TaskBase):
 
-    def __init__(self, github, gitlab, project_name, base_dir, prefix, progress_bar):
+    def __init__(self, github, gitlab, project_name, base_dir, prefix, bar):
         self.github = github
         self.gitlab = gitlab
         self.project_name = project_name
         self.base_dir = base_dir
         self.prefix = prefix
-        self.bar = progress_bar
+        self.bar = bar
 
     def run(self):
-        self.bar.msg = 'FETCHING'
-        fetch = TaskFetchGitlabProject(self.gitlab, self.project_name, self.base_dir)
+        fetch = TaskFetchGitlabProject(self.gitlab, self.project_name, self.base_dir, self.bar)
         repo = fetch.run()
-        self.bar.progress = 0.5
 
-        self.bar.msg = 'PUSHING'
-        push = TaskPushToGitHub(self.github, repo, self.prefix + self.project_name)
+        push = TaskPushToGitHub(self.github, repo, self.prefix + self.project_name, self.bar)
         push.run()
-        self.bar.progress = 1.0
-        self.bar.msg = 'DONE'
 
 
 class TaskProgressBarPool(TaskBase):
-    def __init__(self, delay_sec=0.1, file=sys.stdout):
-        self.pool = []
-        self.delay_sec = delay_sec
-        self.file = file
+    """
+    API documentation: https://python-enlighten.readthedocs.io/en/stable/api.html
+    """
 
-    def register(self, name):
-        bar = ProgressBar(progress=0, name=name, msg='')
+    def __init__(self):
+        self.pool = []
+        self.manager = enlighten.get_manager()
+        self.bar_format = '{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}d}/{total:d} [{unit}]'
+
+    def register(self, name, total):
+        bar = self.manager.counter(total=total, desc=name, unit="ticks", color="red", bar_format=self.bar_format,
+                                   autorefresh=False)
         self.pool.append(bar)
         return bar
 
     def run(self):
-        while True:
+        while any([x.total != x.total for x in self.pool]):
             for bar in self.pool:
-                bar.render(self.file)
-            self.file.flush()
-            if all([x.is_done() for x in self.pool]):
-                break
-            sleep(self.delay_sec)
-            os.system('cls' if os.name == 'nt' else 'clear')
-
-
-class ProgressBar:
-
-    def __init__(self, progress, name, msg):
-        self.progress = progress
-        self.name = name
-        self.msg = msg
-
-    def render(self, file):
-        name = '[' + self.name + ']'
-        file.write(f'{name:<40} {str(self.progress):>5} {self.msg:>20}{os.linesep}')
-
-    def is_done(self):
-        return self.progress >= 1.0
+                bar.refresh()
 
 
 class Exporter:
@@ -226,7 +217,7 @@ class Exporter:
         with ensure_tmp_dir(tmp_dir) as tmp:
             bar = TaskProgressBarPool()
             tasks = list(
-                map(lambda name: TaskExportProject(self.github, self.gitlab, name, tmp, prefix, bar.register(name)),
+                map(lambda name: TaskExportProject(self.github, self.gitlab, name, tmp, prefix, bar.register(name, 5)),
                     projects))
             tasks.append(bar)
             self.exucute_tasks(tasks)

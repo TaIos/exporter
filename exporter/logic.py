@@ -1,5 +1,6 @@
 import requests
 import re
+from threading import Thread
 from abc import ABC
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
@@ -104,13 +105,13 @@ class GitLabClient:
         return self._paginated_json_get(f'{self.API}/projects', params={'owned': True, 'search': search})
 
 
-class Task(ABC):
+class TaskBase(ABC):
 
     def run(self):
         pass
 
 
-class TaskFetchGitlabProject(Task):
+class TaskFetchGitlabProject(TaskBase):
 
     def __init__(self, gitlab, project_name, base_dir):
         self.gitlab = gitlab
@@ -134,7 +135,7 @@ class TaskFetchGitlabProject(Task):
         return repo
 
 
-class TaskPushToGitHub(Task):
+class TaskPushToGitHub(TaskBase):
 
     def __init__(self, github, git_repo, repo_name):
         self.github = github
@@ -150,6 +151,25 @@ class TaskPushToGitHub(Task):
         remote.push()
 
 
+class TaskExportProject(TaskBase):
+
+    def __init__(self, github, gitlab, project_name, base_dir, prefix):
+        self.github = github
+        self.gitlab = gitlab
+        self.project_name = project_name
+        self.base_dir = base_dir
+        self.prefix = prefix
+
+    def run(self):
+        print(f'Export for project {self.project_name} --> START', flush=True)
+        fetch = TaskFetchGitlabProject(self.gitlab, self.project_name, self.base_dir)
+        repo = fetch.run()
+
+        push = TaskPushToGitHub(self.github, repo, self.prefix + self.project_name)
+        push.run()
+        print(f'Export for project {self.project_name} --> DONE', flush=True)
+
+
 class Exporter:
 
     def __init__(self, github, gitlab, logger):
@@ -157,21 +177,16 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def run(self, projects, force_overwrite=False, tmp_dir=None):
+    def run(self, projects, force_overwrite=False, tmp_dir=None, prefix='github_'):
         with ensure_tmp_dir(tmp_dir) as tmp:
-            for project_name in projects:
-                # T1: fetch all projects (in parallel), report errors after this transaction
-                # T2: for each project, create corresponding GitHub repo (in parallel)
-                # T3: upload downloaded projects to GitHub (parallel)
+            tasks = list(map(lambda name: TaskExportProject(self.github, self.gitlab, name, tmp, prefix), projects))
+            self.exucute_tasks(tasks)
 
-                # TODO:
-                # a) rollback feature -> remove unused GitHub repos
-                # b) delete files from disc
-                # c) concurrency issues -> logging, reporting to user (report after each transaction ??)
-                # d) check for already existing github repository names
-
-                task = TaskFetchGitlabProject(self.gitlab, project_name, tmp)
-                repo = task.run()
-
-                task2 = TaskPushToGitHub(self.github, repo, project_name)
-                task2.run()
+    def exucute_tasks(self, tasks):
+        threads = []
+        for task in tasks:
+            t = Thread(target=task.run)
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()

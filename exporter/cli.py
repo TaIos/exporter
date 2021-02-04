@@ -69,8 +69,6 @@ def delete_all_github_repos(ctx, param, value):
               help='Exporter configuration file.', required=True)
 @click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
               help='Project names to export', required=True)
-@click.option('-f', '--force', default=False, show_default=True, is_flag=True,
-              help='Overwrite existing directories.')
 @click.option('--purge-gh', default=False, show_default=False, is_flag=True,
               is_eager=True, expose_value=False, callback=delete_all_github_repos,
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')
@@ -81,12 +79,10 @@ def delete_all_github_repos(ctx, param, value):
                                    '[skip]: do not export conflict repo and continue to the next one\n'
                                    '[overwrite]: overwrite conflict repo with exported repo\n'
                                    '[porcelain]: undo all export from progress from GitHub and end')
-def main(config, projects, force, debug, conflict_policy):
+def main(config, projects, debug, conflict_policy):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
-
-    print(conflict_policy)
 
     exporter = Exporter(
         gitlab=gitlab,

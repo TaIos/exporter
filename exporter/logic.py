@@ -64,6 +64,9 @@ class GitHubClient:
     def delete_repo(self, repo_name, owner):
         self._delete(f'{self.API}/repos/{owner}/{repo_name}')
 
+    def repo_exists(self, repo_name, owner):
+        return self.session.get(url=f'{self.API}/repos/{owner}/{repo_name}').status_code == 200
+
     def create_repo(self, repo_name, data=None):
         data = data or dict()
         data['name'] = repo_name
@@ -112,6 +115,9 @@ class TaskBase(ABC):
     def run(self):
         pass
 
+    def rollback(self):
+        pass
+
 
 class TaskFetchGitlabProject(TaskBase):
 
@@ -155,20 +161,7 @@ class TaskPushToGitHub(TaskBase):
 
     def run(self):
         self.bar.set_msg('Creating GitHub repo')
-        try:
-            self.github.create_repo(self.repo_name)
-        except HTTPError as e:
-            if self.conflict_policy in ['skip', 'porcelain']:
-                print(f'Repository {self.repo_name} already exists. Skipping')
-                self.bar.set_msg_and_finish('SKIPPED')
-                return
-            elif self.conflict_policy == 'overwrite':
-                self.bar.set_msg('Deleting GitHubRepo')
-                print(f'Overwriting {self.repo_name} repository.')
-                self.github.delete_repo(self.repo_name, self.github.login)
-                self.bar.set_msg('Creating GitHub repo')
-                self.github.create_repo(self.repo_name)
-
+        self.github.create_repo(self.repo_name)
         self.bar.update()
         owner = self.github.login
         password = self.github.token
@@ -181,21 +174,36 @@ class TaskPushToGitHub(TaskBase):
 
 class TaskExportProject(TaskBase):
 
-    def __init__(self, github, gitlab, project_name, base_dir, prefix, bar, conflict_policy):
+    def __init__(self, github, gitlab, name_github, name_gitlab, base_dir, bar, conflict_policy):
         self.github = github
         self.gitlab = gitlab
-        self.project_name = project_name
+        self.name_github = name_github
+        self.name_gitlab = name_gitlab
         self.base_dir = base_dir
-        self.prefix = prefix
         self.bar = bar
         self.conflict_policy = conflict_policy
 
     def run(self):
-        fetch = TaskFetchGitlabProject(self.gitlab, self.project_name, self.base_dir, self.bar)
+        if self.github.repo_exists(self.name_github, self.github.login):
+            if self.conflict_policy in ['skip', 'porcelain']:
+                print(
+                    f'Skipping export for GitLab project {self.name_github}.'
+                    f'Project name {self.name_github} already exists on GitHub.')
+                self.bar.set_msg_and_finish('SKIPPED')
+                return
+            elif self.conflict_policy in ['overwrite']:
+                print(f'Overwriting GitHub project {self.name_github}')
+                self.github.delete_repo(self.name_github, self.github.login)
+
+        fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar)
         repo = fetch.run()
 
-        push = TaskPushToGitHub(self.github, repo, self.prefix + self.project_name, self.bar, self.conflict_policy)
+        push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy)
         push.run()
+        self.bar.set_msg_and_finish('')
+
+    def rollback(self):
+        pass
 
 
 class ProgressBarWrapper:
@@ -257,11 +265,11 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def run(self, projects, conflict_policy, tmp_dir=None, prefix='github_'):
+    def run(self, projects, conflict_policy, tmp_dir=None):
         with ensure_tmp_dir(tmp_dir) as tmp:
             bar = TaskProgressBarPool()
             tasks = list(map(lambda name:
-                             TaskExportProject(self.github, self.gitlab, name, tmp, prefix, bar.register(name, 5),
+                             TaskExportProject(self.github, self.gitlab, name, name, tmp, bar.register(name, 5),
                                                conflict_policy), projects))
             tasks.append(bar)
             self.exucute_tasks(tasks)

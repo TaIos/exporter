@@ -76,10 +76,17 @@ def delete_all_github_repos(ctx, param, value):
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')
 @click.option('--debug', default=False, is_flag=True,
               help='Enable debug logs.')
-def main(config, projects, force, debug):
+@click.option('--conflict-policy', type=click.Choice(['skip', 'overwrite', 'porcelain']),
+              default='skip', help='If GitHub already contains repo with the same name as exported repo\n'
+                                   '[skip]: do not export conflict repo and continue to the next one\n'
+                                   '[overwrite]: overwrite conflict repo with exported repo\n'
+                                   '[porcelain]: undo all export from progress from GitHub and end')
+def main(config, projects, force, debug, conflict_policy):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
+
+    print(conflict_policy)
 
     exporter = Exporter(
         gitlab=gitlab,
@@ -89,5 +96,5 @@ def main(config, projects, force, debug):
 
     exporter.run(
         projects=projects,
-        force_overwrite=force
+        conflict_policy=conflict_policy
     )

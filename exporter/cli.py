@@ -79,7 +79,8 @@ def delete_all_github_repos(ctx, param, value):
                                    '[skip]: do not export conflict repo and continue to the next one\n'
                                    '[overwrite]: overwrite conflict repo with exported repo\n'
                                    '[porcelain]: undo all export from progress from GitHub and end')
-def main(config, projects, debug, conflict_policy):
+@click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
+def main(config, projects, debug, conflict_policy, tmp_dir):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
@@ -87,10 +88,11 @@ def main(config, projects, debug, conflict_policy):
     exporter = Exporter(
         gitlab=gitlab,
         github=github,
-        logger=ExporterLogger(debug=debug)
+        logger=ExporterLogger(debug=debug),
     )
 
     exporter.run(
         projects=projects,
-        conflict_policy=conflict_policy
+        conflict_policy=conflict_policy,
+        tmp_dir=tmp_dir
     )

@@ -274,7 +274,7 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def run(self, projects, conflict_policy, tmp_dir=None):
+    def run(self, projects, conflict_policy, tmp_dir):
         tasks = []
         try:
             with ensure_tmp_dir(tmp_dir) as tmp:

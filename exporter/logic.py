@@ -118,12 +118,15 @@ class TaskBase(ABC):
         self.id = None
         self.running = False
         self.exc = []
+        self.subtasks = []
 
     def run(self):
         pass
 
     def stop(self):
         self.running = False
+        for task in self.subtasks:
+            task.stop()
 
     def rollback(self):
         pass
@@ -216,7 +219,6 @@ class TaskExportProject(TaskBase):
         self.bar = bar
         self.conflict_policy = conflict_policy
         self.id = name_github
-        self.subtasks = []
 
     def run(self):
         try:
@@ -255,11 +257,6 @@ class TaskExportProject(TaskBase):
 
     def rollback(self):
         pass
-
-    def stop(self):
-        super().stop()
-        for task in self.subtasks:
-            task.stop()
 
 
 class ProgressBarWrapper:

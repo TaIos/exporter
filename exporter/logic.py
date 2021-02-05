@@ -8,7 +8,6 @@ import shutil
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
-from requests import HTTPError
 
 from .helpers import ensure_tmp_dir
 

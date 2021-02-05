@@ -142,6 +142,7 @@ class TaskFetchGitlabProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.suppress_exceptions = suppress_exceptions
+        self.id = project_name
 
     def run(self):
         try:

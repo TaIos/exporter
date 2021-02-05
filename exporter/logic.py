@@ -4,6 +4,7 @@ import re
 from threading import Thread
 from abc import ABC
 import enlighten
+import shutil
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
@@ -113,8 +114,16 @@ class GitLabClient:
 
 class TaskBase(ABC):
 
+    def __init__(self):
+        self.id = None
+        self.running = False
+        self.exc = []
+
     def run(self):
         pass
+
+    def stop(self):
+        self.running = False
 
     def rollback(self):
         pass
@@ -123,58 +132,82 @@ class TaskBase(ABC):
 class TaskFetchGitlabProject(TaskBase):
 
     def __init__(self, gitlab, project_name, base_dir, bar):
+        super().__init__()
         self.gitlab = gitlab
         self.project_name = project_name
         self.base_dir = base_dir
         self.bar = bar
 
     def run(self):
-        self.bar.set_msg('Searching for project')
-        r = self.gitlab.search_owned_projects(self.project_name)
-        self.bar.set_msg_and_update('Searching for project done')
-        if len(r) == 0:
-            raise ValueError(f'Multiple projects found for {self.project_name}')
-        if len(r[0]) == 0:
-            raise ValueError(f'No project found for {self.project_name}')
-        json = r[0]
+        try:
+            self.running = True
+            self.bar.set_msg('Searching for project')
+            r = self.gitlab.search_owned_projects(self.project_name)
+            self.bar.set_msg_and_update('Searching for project done')
+            if len(r) == 0:
+                raise ValueError(f'Multiple projects found for {self.project_name}')
+            if len(r[0]) == 0:
+                raise ValueError(f'No project found for {self.project_name}')
+            json = r[0]
 
-        username = json['owner']['username']
-        password = self.gitlab.token
-        url = json['http_url_to_repo']
-        auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
-        self.bar.set_msg('Cloning GitLab repo')
-        repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
-        self.bar.set_msg_and_update('Fetching GitLab LFS files')
-        git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])  # fetching all references
-        self.bar.set_msg_and_update('Fetching GitLab LFS files done')
-        return repo
+            username = json['owner']['username']
+            password = self.gitlab.token
+            url = json['http_url_to_repo']
+            auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
+            if not self.running:
+                return
+            self.bar.set_msg('Cloning GitLab repo')
+            repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
+            if not self.running:
+                return
+            self.bar.set_msg_and_update('Fetching GitLab LFS files')
+            git.cmd.Git(working_dir=repo.working_dir).execute(
+                ['git', 'lfs', 'fetch', '--all'])  # fetching all references
+            self.bar.set_msg_and_update('Fetching GitLab LFS files done')
+            self.running = False
+            return repo
+        except Exception as e:
+            self.running = False
 
 
 class TaskPushToGitHub(TaskBase):
 
     def __init__(self, github, git_repo, repo_name, bar, conflict_policy):
+        super().__init__()
         self.github = github
         self.git_repo = git_repo
         self.repo_name = repo_name
         self.bar = bar
         self.conflict_policy = conflict_policy
+        self.id = git_repo
 
     def run(self):
-        self.bar.set_msg('Creating GitHub repo')
-        self.github.create_repo(self.repo_name)
-        self.bar.update()
-        owner = self.github.login
-        password = self.github.token
-        auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
-        remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
-        self.bar.set_msg('Pushing to GitHub')
-        remote.push()
-        self.bar.set_msg_and_update('Pushing to GitHub done')
+        try:
+            self.running = True
+            self.bar.set_msg('Creating GitHub repo')
+            self.github.create_repo(self.repo_name)
+            self.bar.update()
+            owner = self.github.login
+            password = self.github.token
+            auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
+            if not self.running:
+                return
+            remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
+            if not self.running:
+                return
+            self.bar.set_msg('Pushing to GitHub')
+            remote.push()
+            self.bar.set_msg_and_update('Pushing to GitHub done')
+            self.running = False
+        except Exception as e:
+            self.running = False
+            self.exc.append(e)
 
 
 class TaskExportProject(TaskBase):
 
     def __init__(self, github, gitlab, name_github, name_gitlab, base_dir, bar, conflict_policy):
+        super().__init__()
         self.github = github
         self.gitlab = gitlab
         self.name_github = name_github
@@ -182,33 +215,51 @@ class TaskExportProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
+        self.id = name_github
+        self.subtasks = []
 
     def run(self):
-        if self.github.repo_exists(self.name_github, self.github.login):
-            if self.conflict_policy in ['skip', 'porcelain']:
-                print(
-                    f'Skipping export for GitLab project {self.name_github}.'
-                    f'Project name {self.name_github} already exists on GitHub.')
-                self.bar.set_msg_and_finish('SKIPPED')
+        try:
+            self.running = True
+            if self.github.repo_exists(self.name_github, self.github.login):
+                if self.conflict_policy in ['skip', 'porcelain']:
+                    print(
+                        f'Skipping export for GitLab project {self.name_github}.'
+                        f'Project name {self.name_github} already exists on GitHub.')
+                    self.bar.set_msg_and_finish('SKIPPED')
+                    return
+                elif self.conflict_policy in ['overwrite']:
+                    self.bar.set_msg('Deleting GitHubProject')
+                    print(f'Overwriting GitHub project {self.name_github}')
+                    self.github.delete_repo(self.name_github, self.github.login)
+                    self.bar.set_msg('GitHub project deleted')
+
+            fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar)
+            self.subtasks.append(fetch)
+            if not self.running:
                 return
-            elif self.conflict_policy in ['overwrite']:
-                self.bar.set_msg('Deleting GitHubProject')
-                print(f'Overwriting GitHub project {self.name_github}')
-                self.github.delete_repo(self.name_github, self.github.login)
-                self.bar.set_msg('GitHub project deleted')
+            self.bar.set_msg('Starting fetching GitLab project')
+            repo = fetch.run()
+            self.bar.set_msg('Fetching GitLab project done')
 
-        fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar)
-        self.bar.set_msg('Starting fetching GitLab project')
-        repo = fetch.run()
-        self.bar.set_msg('Fetching GitLab project done')
-
-        push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy)
-        self.bar.set_msg('Starting pushing to GitHub')
-        push.run()
-        self.bar.set_msg_and_finish('DONE')
+            push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy)
+            self.subtasks.append(push)
+            if not self.running:
+                return
+            self.bar.set_msg('Starting pushing to GitHub')
+            push.run()
+            self.running = False
+        except Exception as e:
+            self.running = False
+            self.exc.append(e)
 
     def rollback(self):
         pass
+
+    def stop(self):
+        super().stop()
+        for task in self.subtasks:
+            task.stop()
 
 
 class ProgressBarWrapper:
@@ -243,6 +294,9 @@ class ProgressBarWrapper:
     def refresh(self):
         self.bar.refresh()
 
+    def close(self):
+        self.bar.close()
+
 
 class TaskProgressBarPool(TaskBase):
     """
@@ -250,9 +304,11 @@ class TaskProgressBarPool(TaskBase):
     """
 
     def __init__(self):
+        super().__init__()
         self.pool = []
         self.manager = enlighten.get_manager()
         self.bar_format = '{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}d}/{total:d} [{unit}]'
+        self.id = 'Progress Bar'
 
     def register(self, name, total):
         bar = self.manager.counter(total=total, desc=name, unit="ticks", color="red", bar_format=self.bar_format,
@@ -262,9 +318,16 @@ class TaskProgressBarPool(TaskBase):
         return bar_wrapper
 
     def run(self):
-        while not all([x.is_finished() for x in self.pool]):
+        self.running = True
+        while not all([x.is_finished() for x in self.pool]) and self.running:
             for bar in self.pool:
                 bar.refresh()
+        for bar in self.pool:
+            bar.close()
+        try:
+            self.manager.stop()
+        except Exception:
+            pass
 
 
 class Exporter:
@@ -276,20 +339,27 @@ class Exporter:
 
     def run(self, projects, conflict_policy, tmp_dir):
         tasks = []
-        try:
-            with ensure_tmp_dir(tmp_dir) as tmp:
-                bar = TaskProgressBarPool()
-                for name in projects:
-                    tasks.append(TaskExportProject(self.github, self.gitlab, name, name, tmp, bar.register(name, 5),
-                                                   conflict_policy))
-                tasks.append(bar)
-                self.exucute_tasks(tasks)
-        except ValueError as e:
-            click.secho(f'ERROR: {e}', fg='red', bold=True)
-            self.rollback(tasks)
-
-    def exucute_tasks(self, tasks):
         threads = []
+        tmp_dir = ensure_tmp_dir(tmp_dir)
+        try:
+            bar = TaskProgressBarPool()
+            for name in projects:
+                tasks.append(TaskExportProject(self.github, self.gitlab, name, name, tmp_dir, bar.register(name, 5),
+                                               conflict_policy))
+            tasks.append(bar)
+            self.exucute_tasks(tasks, threads)
+        except KeyboardInterrupt:
+            click.secho(f'Stopping', bold=True)
+            self.stop_execution(tasks, threads)
+            self.rollback(tasks)
+        except Exception as e:
+            click.secho(f'ERROR: {e}', fg='red', bold=True)
+            self.stop_execution(tasks, threads)
+            self.rollback(tasks)
+        finally:
+            shutil.rmtree(tmp_dir)
+
+    def exucute_tasks(self, tasks, threads):
         for task in tasks:
             t = Thread(target=task.run)
             t.start()
@@ -299,4 +369,11 @@ class Exporter:
 
     def rollback(self, tasks):
         for task in tasks:
+            click.echo(f'Rollback: {task.id}')
             task.rollback()
+
+    def stop_execution(self, tasks, threads):
+        for task in tasks:
+            task.stop()
+        for t in threads:
+            t.join()

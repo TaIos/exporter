@@ -238,6 +238,7 @@ class TaskExportProject(TaskBase):
                         f'Skipping export for GitLab project {self.name_github}.'
                         f'Project name {self.name_github} already exists on GitHub.')
                     self.bar.set_msg_and_finish('SKIPPED')
+                    self.running = False
                     return
                 elif self.conflict_policy in ['overwrite']:
                     self.bar.set_msg('Deleting GitHubProject')

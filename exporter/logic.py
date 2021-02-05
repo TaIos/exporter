@@ -1,3 +1,4 @@
+import click
 import requests
 import re
 from threading import Thread
@@ -130,7 +131,7 @@ class TaskFetchGitlabProject(TaskBase):
     def run(self):
         self.bar.set_msg('Searching for project')
         r = self.gitlab.search_owned_projects(self.project_name)
-        self.bar.update()
+        self.bar.set_msg_and_update('Searching for project done')
         if len(r) == 0:
             raise ValueError(f'Multiple projects found for {self.project_name}')
         if len(r[0]) == 0:
@@ -143,10 +144,9 @@ class TaskFetchGitlabProject(TaskBase):
         auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
         self.bar.set_msg('Cloning GitLab repo')
         repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
-        self.bar.update()
-        self.bar.set_msg('Fetching GitLab LFS files')
+        self.bar.set_msg_and_update('Fetching GitLab LFS files')
         git.cmd.Git(working_dir=repo.working_dir).execute(['git', 'lfs', 'fetch', '--all'])  # fetching all references
-        self.bar.set_msg_and_finish('')
+        self.bar.set_msg_and_update('Fetching GitLab LFS files done')
         return repo
 
 
@@ -169,7 +169,7 @@ class TaskPushToGitHub(TaskBase):
         remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
         self.bar.set_msg('Pushing to GitHub')
         remote.push()
-        self.bar.set_msg_and_finish('')
+        self.bar.set_msg_and_update('Pushing to GitHub done')
 
 
 class TaskExportProject(TaskBase):
@@ -192,15 +192,20 @@ class TaskExportProject(TaskBase):
                 self.bar.set_msg_and_finish('SKIPPED')
                 return
             elif self.conflict_policy in ['overwrite']:
+                self.bar.set_msg('Deleting GitHubProject')
                 print(f'Overwriting GitHub project {self.name_github}')
                 self.github.delete_repo(self.name_github, self.github.login)
+                self.bar.set_msg('GitHub project deleted')
 
         fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar)
+        self.bar.set_msg('Starting fetching GitLab project')
         repo = fetch.run()
+        self.bar.set_msg('Fetching GitLab project done')
 
         push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy)
+        self.bar.set_msg('Starting pushing to GitHub')
         push.run()
-        self.bar.set_msg_and_finish('')
+        self.bar.set_msg_and_finish('DONE')
 
     def rollback(self):
         pass
@@ -219,6 +224,10 @@ class ProgressBarWrapper:
     def set_msg(self, msg):
         self.bar.unit = msg
         self.refresh()
+
+    def set_msg_and_update(self, msg):
+        self.set_msg(msg)
+        self.update()
 
     def set_msg_and_finish(self, msg):
         self.set_msg(msg)
@@ -266,13 +275,18 @@ class Exporter:
         self.logger = logger
 
     def run(self, projects, conflict_policy, tmp_dir=None):
-        with ensure_tmp_dir(tmp_dir) as tmp:
-            bar = TaskProgressBarPool()
-            tasks = list(map(lambda name:
-                             TaskExportProject(self.github, self.gitlab, name, name, tmp, bar.register(name, 5),
-                                               conflict_policy), projects))
-            tasks.append(bar)
-            self.exucute_tasks(tasks)
+        tasks = []
+        try:
+            with ensure_tmp_dir(tmp_dir) as tmp:
+                bar = TaskProgressBarPool()
+                for name in projects:
+                    tasks.append(TaskExportProject(self.github, self.gitlab, name, name, tmp, bar.register(name, 5),
+                                                   conflict_policy))
+                tasks.append(bar)
+                self.exucute_tasks(tasks)
+        except ValueError as e:
+            click.secho(f'ERROR: {e}', fg='red', bold=True)
+            self.rollback(tasks)
 
     def exucute_tasks(self, tasks):
         threads = []
@@ -282,3 +296,7 @@ class Exporter:
             threads.append(t)
         for t in threads:
             t.join()
+
+    def rollback(self, tasks):
+        for task in tasks:
+            task.rollback()

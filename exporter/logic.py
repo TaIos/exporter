@@ -5,12 +5,12 @@ from threading import Thread
 from abc import ABC
 import enlighten
 import shutil
+import uuid
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
 
 from .helpers import ensure_tmp_dir
-from requests import HTTPError
 
 
 class GitHubClient:
@@ -115,11 +115,11 @@ class GitLabClient:
 class TaskBase(ABC):
 
     def __init__(self):
-        self.id = None
+        self.id = str(uuid.uuid4())  # make a random UUID
         self.running = False
-        self.exc = []
-        self.subtasks = []
-        self.suppress_exceptions = False
+        self.exc = []  # list of caught exceptions during execution
+        self.subtasks = []  # list of subtasks used by this task
+        self.suppress_exceptions = False  # false suppress any exception throwing
 
     def run(self):
         pass

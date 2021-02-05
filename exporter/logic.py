@@ -1,13 +1,12 @@
 import click
 import requests
 import re
-from threading import Thread
 from abc import ABC
 import enlighten
+import multiprocessing
 
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
-from requests import HTTPError
 
 from .helpers import ensure_tmp_dir
 
@@ -113,7 +112,13 @@ class GitLabClient:
 
 class TaskBase(ABC):
 
+    def __init__(self):
+        self.id = None
+
     def run(self):
+        pass
+
+    def stop(self):
         pass
 
     def rollback(self):
@@ -123,10 +128,12 @@ class TaskBase(ABC):
 class TaskFetchGitlabProject(TaskBase):
 
     def __init__(self, gitlab, project_name, base_dir, bar):
+        super().__init__()
         self.gitlab = gitlab
         self.project_name = project_name
         self.base_dir = base_dir
         self.bar = bar
+        self.id = project_name
 
     def run(self):
         self.bar.set_msg('Searching for project')
@@ -153,11 +160,13 @@ class TaskFetchGitlabProject(TaskBase):
 class TaskPushToGitHub(TaskBase):
 
     def __init__(self, github, git_repo, repo_name, bar, conflict_policy):
+        super().__init__()
         self.github = github
         self.git_repo = git_repo
         self.repo_name = repo_name
         self.bar = bar
         self.conflict_policy = conflict_policy
+        self.id = git_repo
 
     def run(self):
         self.bar.set_msg('Creating GitHub repo')
@@ -175,6 +184,7 @@ class TaskPushToGitHub(TaskBase):
 class TaskExportProject(TaskBase):
 
     def __init__(self, github, gitlab, name_github, name_gitlab, base_dir, bar, conflict_policy):
+        super().__init__()
         self.github = github
         self.gitlab = gitlab
         self.name_github = name_github
@@ -182,6 +192,7 @@ class TaskExportProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
+        self.id = name_github
 
     def run(self):
         if self.github.repo_exists(self.name_github, self.github.login):
@@ -243,6 +254,9 @@ class ProgressBarWrapper:
     def refresh(self):
         self.bar.refresh()
 
+    def close(self):
+        self.bar.close()
+
 
 class TaskProgressBarPool(TaskBase):
     """
@@ -250,9 +264,12 @@ class TaskProgressBarPool(TaskBase):
     """
 
     def __init__(self):
+        super().__init__()
         self.pool = []
         self.manager = enlighten.get_manager()
         self.bar_format = '{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}d}/{total:d} [{unit}]'
+        self.id = 'progress bar'
+        self.running = False
 
     def register(self, name, total):
         bar = self.manager.counter(total=total, desc=name, unit="ticks", color="red", bar_format=self.bar_format,
@@ -262,9 +279,16 @@ class TaskProgressBarPool(TaskBase):
         return bar_wrapper
 
     def run(self):
-        while not all([x.is_finished() for x in self.pool]):
+        self.running = True
+        while not all([x.is_finished() for x in self.pool]) and self.running:
             for bar in self.pool:
                 bar.refresh()
+        for bar in self.pool:
+            bar.close()
+        self.manager.stop()
+
+    def stop(self):
+        self.running = False
 
 
 class Exporter:
@@ -276,6 +300,7 @@ class Exporter:
 
     def run(self, projects, conflict_policy, tmp_dir):
         tasks = []
+        threads = []
         try:
             with ensure_tmp_dir(tmp_dir) as tmp:
                 bar = TaskProgressBarPool()
@@ -283,20 +308,28 @@ class Exporter:
                     tasks.append(TaskExportProject(self.github, self.gitlab, name, name, tmp, bar.register(name, 5),
                                                    conflict_policy))
                 tasks.append(bar)
-                self.exucute_tasks(tasks)
+                self._exucute_tasks(tasks, threads)
         except ValueError as e:
             click.secho(f'ERROR: {e}', fg='red', bold=True)
+            self._stop_task_execution(tasks, threads)
             self.rollback(tasks)
+        except KeyboardInterrupt:
+            self._stop_task_execution(tasks, threads)
+            click.secho(f'Interrupted. Executing rollaback', bold=True)
+            for task in tasks:
+                click.echo(f'Rollback: {task.id}')
+                task.rollback()
 
-    def exucute_tasks(self, tasks):
-        threads = []
+    def _exucute_tasks(self, tasks, threads):
         for task in tasks:
-            t = Thread(target=task.run)
+            t = multiprocessing.Process(target=task.run, args=())
             t.start()
             threads.append(t)
         for t in threads:
             t.join()
 
-    def rollback(self, tasks):
+    def _stop_task_execution(self, tasks, threads):
         for task in tasks:
-            task.rollback()
+            task.stop()
+        for t in threads:
+            t.kill()

@@ -119,7 +119,7 @@ class TaskBase(ABC):
         self.running = False
         self.exc = []  # list of caught exceptions during execution
         self.subtasks = []  # list of subtasks used by this task
-        self.suppress_exceptions = False  # false suppress any exception throwing
+        self.suppress_exceptions = False  # if false suppress any exception throwing
 
     def run(self):
         pass
@@ -349,7 +349,7 @@ class Exporter:
         self.gitlab = gitlab
         self.logger = logger
 
-    def run(self, projects, conflict_policy, tmp_dir):
+    def run(self, projects, conflict_policy, tmp_dir, task_timeout):
         tasks = []
         threads = []
         tmp_dir = ensure_tmp_dir(tmp_dir)
@@ -362,11 +362,11 @@ class Exporter:
             self.exucute_tasks(tasks, threads)
         except KeyboardInterrupt:
             click.secho(f'Stopping', bold=True)
-            self.stop_execution(tasks, threads)
+            self.stop_execution(tasks, threads, task_timeout)
             self.rollback(tasks)
         except Exception as e:
             click.secho(f'ERROR: {e}', fg='red', bold=True)
-            self.stop_execution(tasks, threads)
+            self.stop_execution(tasks, threads, task_timeout)
             self.rollback(tasks)
         finally:
             shutil.rmtree(tmp_dir)
@@ -384,8 +384,8 @@ class Exporter:
             click.echo(f'Rollback: {task.id}')
             task.rollback()
 
-    def stop_execution(self, tasks, threads):
+    def stop_execution(self, tasks, threads, task_timeout):
         for task in tasks:
             task.stop()
         for t in threads:
-            t.join()
+            t.join(task_timeout)

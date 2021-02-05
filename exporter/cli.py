@@ -63,6 +63,20 @@ def delete_all_github_repos(ctx, param, value):
             ctx.exit()
 
 
+def validate_timeout(ctx, param, value):
+    valid = True
+    try:
+        timeout = float(value)
+        if timeout < 0 or timeout > 1000:
+            valid = False
+    except Exception:
+        valid = False
+
+    if not valid:
+        raise click.BadParameter('Invalid timeout.')
+    return timeout
+
+
 @click.command(name='exporter')
 @click.version_option(version='0.0.2')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
@@ -80,7 +94,9 @@ def delete_all_github_repos(ctx, param, value):
                                    '[overwrite]: overwrite conflict repo with exported repo\n'
                                    '[porcelain]: undo all export from progress from GitHub and end')
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
-def main(config, projects, debug, conflict_policy, tmp_dir):
+@click.option('--task-timeout', help='Floating point number specifying a timeout for the task.', default=10.0,
+              callback=validate_timeout)
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
@@ -94,5 +110,6 @@ def main(config, projects, debug, conflict_policy, tmp_dir):
     exporter.run(
         projects=projects,
         conflict_policy=conflict_policy,
-        tmp_dir=tmp_dir
+        tmp_dir=tmp_dir,
+        task_timeout=task_timeout
     )

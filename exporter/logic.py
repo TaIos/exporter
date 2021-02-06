@@ -226,7 +226,7 @@ class TaskExportProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
-        self.id = name_github
+        self.id = f'{name_gitlab} -> {name_github}'
         self.suppress_exceptions = suppress_exceptions
 
     def run(self):
@@ -235,8 +235,8 @@ class TaskExportProject(TaskBase):
             if self.github.repo_exists(self.name_github, self.github.login):
                 if self.conflict_policy in ['skip', 'porcelain']:
                     print(
-                        f'Skipping export for GitLab project {self.name_github}.'
-                        f'Project name {self.name_github} already exists on GitHub.')
+                        f"Skipping export for GitLab project '{self.name_gitlab}'. "
+                        f"Project name '{self.name_github}' already exists on GitHub.")
                     self.bar.set_msg_and_finish('SKIPPED')
                     self.running = False
                     return
@@ -357,7 +357,7 @@ class Exporter:
             tasks = self._prepare_tasks(self.gitlab, self.github, projects, tmp_dir, conflict_policy)
             self._execute_tasks(tasks, threads)
         except KeyboardInterrupt:
-            click.secho(f'Stopping', bold=True)
+            click.secho(f'STOPPING', bold=True)
             self._stop_execution(tasks, threads, task_timeout)
             self._rollback(tasks)
         except Exception as e:
@@ -372,7 +372,11 @@ class Exporter:
         tasks = []
         bar_task = TaskProgressBarPool()
         for name_gitlab, name_github in projects:
-            bar = bar_task.register(f'[{name_gitlab} -> {name_github}]', 5)
+            if name_gitlab == name_github:
+                bar_msg = f'[{name_gitlab}]'
+            else:
+                bar_msg = f'[{name_gitlab} -> {name_github}]'
+            bar = bar_task.register(bar_msg, 5)
             tasks.append(TaskExportProject(gitlab, github, name_gitlab, name_github, tmp_dir, bar,
                                            conflict_policy, suppress_exceptions=True))
         tasks.append(bar_task)
@@ -390,7 +394,7 @@ class Exporter:
     @staticmethod
     def _rollback(tasks):
         for task in tasks:
-            click.echo(f'Rollback: {task.id}')
+            click.echo(f"ROLLBACK: '{task.id}'")
             task.rollback()
 
     @staticmethod

@@ -129,6 +129,10 @@ class TaskBase(ABC):
         for task in self.subtasks:
             task.stop()
 
+    def raise_if_not_running(self):
+        if not self.running:
+            raise InterruptedError(self.id)
+
     def rollback(self):
         pass
 
@@ -160,12 +164,10 @@ class TaskFetchGitlabProject(TaskBase):
             password = self.gitlab.token
             url = json['http_url_to_repo']
             auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             self.bar.set_msg('Cloning GitLab repo')
             repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             self.bar.set_msg_and_update('Fetching GitLab LFS files')
             git.cmd.Git(working_dir=repo.working_dir).execute(
                 ['git', 'lfs', 'fetch', '--all'])  # fetching all references
@@ -199,11 +201,9 @@ class TaskPushToGitHub(TaskBase):
             owner = self.github.login
             password = self.github.token
             auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             self.bar.set_msg('Pushing to GitHub')
             remote.push()
             self.bar.set_msg_and_update('Pushing to GitHub done')
@@ -249,8 +249,7 @@ class TaskExportProject(TaskBase):
             fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar,
                                            suppress_exceptions=False)
             self.subtasks.append(fetch)
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             self.bar.set_msg('Starting fetching GitLab project')
             repo = fetch.run()
             self.bar.set_msg('Fetching GitLab project done')
@@ -258,8 +257,7 @@ class TaskExportProject(TaskBase):
             push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy,
                                     suppress_exceptions=False)
             self.subtasks.append(push)
-            if not self.running:
-                raise InterruptedError(self.id)
+            self.raise_if_not_running()
             self.bar.set_msg('Starting pushing to GitHub')
             push.run()
             self.bar.set_msg_and_finish('DONE')

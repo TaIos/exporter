@@ -26,10 +26,10 @@ class ProjectLoader:
     def _parse_line(line):
         s = line.split(' ')
         if len(s) == 1 and len(s[0]):
-            return s[0], s[0]
+            return [s[0], s[0]]
         elif len(s) == 3 and s[1] == '->' \
                 and len(s[0]) and len(s[2]):
-            return s[0], s[2]
+            return [s[0], s[2]]
         raise ValueError(f"Line '{line}'")
 
     @staticmethod

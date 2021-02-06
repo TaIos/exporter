@@ -3,6 +3,7 @@ import configparser
 
 from requests import HTTPError
 
+from .helpers import rndstr
 from .logger import ExporterLogger
 from .logic import Exporter, GitLabClient, GitHubClient
 from .config import ConfigLoader, ProjectLoader
@@ -71,6 +72,12 @@ def validate_timeout(ctx, param, value):
     return timeout
 
 
+def make_unique_projects(projects, random_suffix_length):
+    for p in projects:
+        p[1] = p[1] + '_' + rndstr(random_suffix_length)
+    return projects
+
+
 # credit: Stephen Rauch, https://stackoverflow.com/a/51235564/6784881
 class Mutex(click.Option):
     def __init__(self, *args, **kwargs):
@@ -113,13 +120,18 @@ class Mutex(click.Option):
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
 @click.option('--task-timeout', help='Floating point number specifying a timeout for the task.', default=10.0,
               callback=validate_timeout)
-def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all):
+@click.option('--unique', is_flag=True, default=False,
+              help='Prevent name conflicts by appending random string at the end of exported project.')
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
 
     if export_all:
         projects = load_all_gitlab_projects(gitlab)
+
+    if unique:
+        projects = make_unique_projects(projects, random_suffix_length=6)
 
     exporter = Exporter(
         gitlab=gitlab,

@@ -7,7 +7,7 @@ import click
 
 
 def rndstr(length):
-    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
+    return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
 
 def ensure_tmp_dir(path):

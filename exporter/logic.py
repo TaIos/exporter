@@ -10,7 +10,7 @@ import uuid
 # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
 import git
 
-from .helpers import ensure_tmp_dir
+from .helpers import ensure_tmp_dir, rndstr
 
 
 class GitHubClient:
@@ -167,7 +167,7 @@ class TaskFetchGitlabProject(TaskBase):
             auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
             self.raise_if_not_running()
             self.bar.set_msg('Cloning GitLab repo')
-            git_cmd = git.Repo.clone_from(auth_https_url, self.base_dir / self.name_gitlab)
+            git_cmd = git.Repo.clone_from(auth_https_url, self.base_dir / (self.name_gitlab + rndstr(5)))
             self.raise_if_not_running()
             self.bar.set_msg_and_update('Fetching GitLab LFS files')
             git.cmd.Git(working_dir=git_cmd.working_dir).execute(['git', 'lfs', 'fetch', '--all'])

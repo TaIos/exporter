@@ -1,7 +1,13 @@
+import random
 import pathlib
 import shutil
+import string
 
 import click
+
+
+def rndstr(length):
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
 
 def ensure_tmp_dir(path):

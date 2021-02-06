@@ -340,7 +340,7 @@ class TaskProgressBarPool(TaskBase):
 
     def register(self, name, total):
         bar = self.manager.counter(total=total, desc=name, unit="ticks", color="red", bar_format=self.bar_format,
-                                   autorefresh=False)
+                                   autorefresh=False, threaded=True)
         bar_wrapper = ProgressBarWrapper(bar)
         self.pool.append(bar_wrapper)
         return bar_wrapper

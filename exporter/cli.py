@@ -38,7 +38,8 @@ def load_projects_file(ctx, param, value):
     try:
         return ProjectLoader.load(value)
     except Exception as e:
-        raise click.BadParameter(f'Failed to load the projects file!')
+        raise click.BadParameter(
+            f'Failed to load the projects file! Check documentation for correct format and examples.')
 
 
 def delete_all_github_repos(ctx, param, value):
@@ -82,7 +83,7 @@ def validate_timeout(ctx, param, value):
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
               help='Exporter configuration file.', required=True)
 @click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
-              help='Project names to export', required=True)
+              help='Project names to export. See Documentation for format.', required=True)
 @click.option('--purge-gh', default=False, show_default=False, is_flag=True,
               is_eager=True, expose_value=False, callback=delete_all_github_repos,
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')

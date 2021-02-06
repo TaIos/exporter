@@ -217,12 +217,12 @@ class TaskPushToGitHub(TaskBase):
 
 class TaskExportProject(TaskBase):
 
-    def __init__(self, github, gitlab, name_github, name_gitlab, base_dir, bar, conflict_policy, suppress_exceptions):
+    def __init__(self, gitlab, github, name_gitlab, name_github, base_dir, bar, conflict_policy, suppress_exceptions):
         super().__init__()
-        self.github = github
         self.gitlab = gitlab
-        self.name_github = name_github
+        self.github = github
         self.name_gitlab = name_gitlab
+        self.name_github = name_github
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
@@ -355,10 +355,10 @@ class Exporter:
         tmp_dir = ensure_tmp_dir(tmp_dir)
         try:
             bar = TaskProgressBarPool()
-            for name in projects:
-                tasks.append(TaskExportProject(self.github, self.gitlab, name, name, tmp_dir, bar.register(name, 5),
-                                               conflict_policy, suppress_exceptions=True))
-            tasks.append(bar)
+            for name_gitlab, name_github in projects:
+                tasks.append(TaskExportProject(self.gitlab, self.github, name_gitlab, name_github, tmp_dir,
+                                               bar.register(name_gitlab, 5), conflict_policy, suppress_exceptions=True))
+                tasks.append(bar)
             self.exucute_tasks(tasks, threads)
         except KeyboardInterrupt:
             click.secho(f'Stopping', bold=True)

@@ -22,6 +22,18 @@ class ConfigLoader:
 
 class ProjectLoader:
 
+    @staticmethod
+    def _parse_line(line):
+        s = line.split(' ')
+        if len(s) == 1 and len(s[0]):
+            return s[0], s[0]
+        elif len(s) == 3 and s[1] == '->' \
+                and len(s[0]) and len(s[2]):
+            return s[0], s[2]
+        raise ValueError(f"Invalid format in projects file for line '{line}'")
+
     @classmethod
     def load(cls, project_file):
-        return [x.strip() for x in project_file.read().splitlines()]
+        lines = [x.strip() for x in project_file.read().splitlines()]
+        lines_parsed = map(cls._parse_line, lines)
+        return lines_parsed

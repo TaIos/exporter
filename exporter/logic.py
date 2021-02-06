@@ -354,24 +354,32 @@ class Exporter:
         threads = []
         tmp_dir = ensure_tmp_dir(tmp_dir)
         try:
-            bar = TaskProgressBarPool()
-            for name_gitlab, name_github in projects:
-                tasks.append(TaskExportProject(self.gitlab, self.github, name_gitlab, name_github, tmp_dir,
-                                               bar.register(name_gitlab, 5), conflict_policy, suppress_exceptions=True))
-                tasks.append(bar)
-            self.exucute_tasks(tasks, threads)
+            tasks = self._prepare_tasks(self.gitlab, self.github, projects, tmp_dir, conflict_policy)
+            self._execute_tasks(tasks, threads)
         except KeyboardInterrupt:
             click.secho(f'Stopping', bold=True)
-            self.stop_execution(tasks, threads, task_timeout)
-            self.rollback(tasks)
+            self._stop_execution(tasks, threads, task_timeout)
+            self._rollback(tasks)
         except Exception as e:
             click.secho(f'ERROR: {e}', fg='red', bold=True)
-            self.stop_execution(tasks, threads, task_timeout)
-            self.rollback(tasks)
+            self._stop_execution(tasks, threads, task_timeout)
+            self._rollback(tasks)
         finally:
             shutil.rmtree(tmp_dir)
 
-    def exucute_tasks(self, tasks, threads):
+    @staticmethod
+    def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy):
+        tasks = []
+        bar_task = TaskProgressBarPool()
+        for name_gitlab, name_github in projects:
+            bar = bar_task.register(f'[{name_gitlab} -> {name_github}]', 5)
+            tasks.append(TaskExportProject(gitlab, github, name_gitlab, name_github, tmp_dir, bar,
+                                           conflict_policy, suppress_exceptions=True))
+        tasks.append(bar_task)
+        return tasks
+
+    @staticmethod
+    def _execute_tasks(tasks, threads):
         for task in tasks:
             t = Thread(target=task.run)
             t.start()
@@ -379,12 +387,14 @@ class Exporter:
         for t in threads:
             t.join()
 
-    def rollback(self, tasks):
+    @staticmethod
+    def _rollback(tasks):
         for task in tasks:
             click.echo(f'Rollback: {task.id}')
             task.rollback()
 
-    def stop_execution(self, tasks, threads, task_timeout):
+    @staticmethod
+    def _stop_execution(tasks, threads, task_timeout):
         for task in tasks:
             task.stop()
         for t in threads:

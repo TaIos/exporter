@@ -30,10 +30,17 @@ class ProjectLoader:
         elif len(s) == 3 and s[1] == '->' \
                 and len(s[0]) and len(s[2]):
             return s[0], s[2]
-        raise ValueError(f"Invalid format in projects file for line '{line}'")
+        raise ValueError(f"Line '{line}'")
+
+    @staticmethod
+    def _check_unique_values(lines):
+        dst = list(map(lambda x: x[1], lines))
+        if len(dst) != len(set(dst)):
+            raise ValueError("GitHub names must be unique.")
 
     @classmethod
     def load(cls, project_file):
         lines = [x.strip() for x in project_file.read().splitlines()]
-        lines_parsed = map(cls._parse_line, lines)
+        lines_parsed = list(map(cls._parse_line, lines))
+        cls._check_unique_values(lines_parsed)
         return lines_parsed

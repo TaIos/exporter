@@ -31,15 +31,14 @@ def load_config_file(ctx, param, value):
         cfg.read_file(value)
         return ConfigLoader.load(cfg, value.name)
     except Exception as e:
-        raise click.BadParameter(f'Failed to load the configuration!')
+        raise click.BadParameter(e)
 
 
 def load_projects_file(ctx, param, value):
     try:
         return ProjectLoader.load(value)
     except Exception as e:
-        raise click.BadParameter(
-            f'Failed to load the projects file! Check documentation for correct format and examples.')
+        raise click.BadParameter(e)
 
 
 def delete_all_github_repos(ctx, param, value):

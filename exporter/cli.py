@@ -25,6 +25,15 @@ class ExporterLogger:
         logging.info(msg)
 
 
+def load_all_gitlab_projects(gitlab):
+    try:
+        projects = gitlab.get_all_owned_projects()
+        lines = list(map(lambda x: x['path'], projects))
+        return ProjectLoader.load_parsed(lines)
+    except Exception as e:
+        raise click.BadParameter(e)
+
+
 def load_config_file(ctx, param, value):
     try:
         cfg = configparser.ConfigParser()
@@ -36,7 +45,9 @@ def load_config_file(ctx, param, value):
 
 def load_projects_file(ctx, param, value):
     try:
-        return ProjectLoader.load(value)
+        if value is not None:
+            return ProjectLoader.load(value)
+        return None
     except Exception as e:
         raise click.BadParameter(e)
 
@@ -77,12 +88,35 @@ def validate_timeout(ctx, param, value):
     return timeout
 
 
+# credit: Stephen Rauch, https://stackoverflow.com/a/51235564/6784881
+class Mutex(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.not_required_if = kwargs.pop("not_required_if")
+
+        assert self.not_required_if, "'not_required_if' parameter required"
+        kwargs["help"] = (kwargs.get("help", "") + " Option is mutually exclusive with " + ", ".join(
+            self.not_required_if) + ".").strip()
+        super(Mutex, self).__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        current_opt = self.name in opts
+        for mutex_opt in self.not_required_if:
+            if mutex_opt in opts:
+                if current_opt:
+                    raise click.UsageError(
+                        "Illegal usage: '" + str(self.name) + "' is mutually exclusive with " + str(mutex_opt) + ".")
+                else:
+                    self.prompt = None
+        return super(Mutex, self).handle_parse_result(ctx, opts, args)
+
+
 @click.command(name='exporter')
 @click.version_option(version='0.0.2')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
               help='Exporter configuration file.', required=True)
-@click.option('-p', '--projects', type=click.File(mode='r'), callback=load_projects_file,
-              help='Project names to export. See Documentation for format.', required=True)
+@click.option('--export-all', is_flag=True, default=False, help='Export all GitLab projects.')
+@click.option('-p', '--projects', type=click.File(mode='r', lazy=True), callback=load_projects_file,
+              cls=Mutex, help='Project names to export. See Documentation for format.', not_required_if=['export-all'])
 @click.option('--purge-gh', default=False, show_default=False, is_flag=True,
               is_eager=True, expose_value=False, callback=delete_all_github_repos,
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')
@@ -96,10 +130,13 @@ def validate_timeout(ctx, param, value):
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
 @click.option('--task-timeout', help='Floating point number specifying a timeout for the task.', default=10.0,
               callback=validate_timeout)
-def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout):
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
+
+    if export_all:
+        projects = load_all_gitlab_projects(gitlab)
 
     exporter = Exporter(
         gitlab=gitlab,

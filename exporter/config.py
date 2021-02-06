@@ -39,8 +39,12 @@ class ProjectLoader:
             raise ValueError("GitHub names must be unique.")
 
     @classmethod
-    def load(cls, project_file):
-        lines = [x.strip() for x in project_file.read().splitlines()]
+    def load_parsed(cls, lines):
         lines_parsed = list(map(cls._parse_line, lines))
         cls._check_unique_values(lines_parsed)
         return lines_parsed
+
+    @classmethod
+    def load(cls, project_file):
+        lines = [x.strip() for x in project_file.read().splitlines()]
+        return cls.load_parsed(lines)

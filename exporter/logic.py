@@ -134,30 +134,31 @@ class TaskBase(ABC):
             raise InterruptedError(self.id)
 
     def rollback(self):
-        pass
+        for task in self.subtasks:
+            task.rollback()
 
 
 class TaskFetchGitlabProject(TaskBase):
 
-    def __init__(self, gitlab, project_name, base_dir, bar, suppress_exceptions):
+    def __init__(self, gitlab, name_gitlab, base_dir, bar, suppress_exceptions):
         super().__init__()
         self.gitlab = gitlab
-        self.project_name = project_name
+        self.name_gitlab = name_gitlab
         self.base_dir = base_dir
         self.bar = bar
         self.suppress_exceptions = suppress_exceptions
-        self.id = project_name
+        self.id = name_gitlab
 
     def run(self):
         try:
             self.running = True
             self.bar.set_msg('Searching for project')
-            r = self.gitlab.search_owned_projects(self.project_name)
+            r = self.gitlab.search_owned_projects(self.name_gitlab)
             self.bar.set_msg_and_update('Searching for project done')
             if len(r) == 0:
-                raise ValueError(f'Multiple projects found for {self.project_name}')
+                raise ValueError(f'Multiple projects found for {self.name_gitlab}')
             if len(r[0]) == 0:
-                raise ValueError(f'No project found for {self.project_name}')
+                raise ValueError(f'No project found for {self.name_gitlab}')
             json = r[0]
 
             username = json['owner']['username']
@@ -166,14 +167,13 @@ class TaskFetchGitlabProject(TaskBase):
             auth_https_url = re.sub(r'(https://)', f'\\1{username}:{password}@', url)
             self.raise_if_not_running()
             self.bar.set_msg('Cloning GitLab repo')
-            repo = git.Repo.clone_from(auth_https_url, self.base_dir / self.project_name)
+            git_cmd = git.Repo.clone_from(auth_https_url, self.base_dir / self.name_gitlab)
             self.raise_if_not_running()
             self.bar.set_msg_and_update('Fetching GitLab LFS files')
-            git.cmd.Git(working_dir=repo.working_dir).execute(
-                ['git', 'lfs', 'fetch', '--all'])  # fetching all references
+            git.cmd.Git(working_dir=git_cmd.working_dir).execute(['git', 'lfs', 'fetch', '--all'])
             self.bar.set_msg_and_update('Fetching GitLab LFS files done')
             self.running = False
-            return repo
+            return git_cmd
         except Exception as e:
             self.running = False
             if not self.suppress_exceptions:
@@ -182,27 +182,29 @@ class TaskFetchGitlabProject(TaskBase):
 
 class TaskPushToGitHub(TaskBase):
 
-    def __init__(self, github, git_repo, repo_name, bar, conflict_policy, suppress_exceptions):
+    def __init__(self, github, git_cmd, name_github, bar, conflict_policy, suppress_exceptions):
         super().__init__()
         self.github = github
-        self.git_repo = git_repo
-        self.repo_name = repo_name
+        self.git_cmd = git_cmd
+        self.name_github = name_github
         self.bar = bar
         self.conflict_policy = conflict_policy
-        self.id = git_repo
+        self.id = git_cmd
         self.suppress_exceptions = suppress_exceptions
+        self.status = dict()
 
     def run(self):
         try:
             self.running = True
             self.bar.set_msg('Creating GitHub repo')
-            self.github.create_repo(self.repo_name)
+            self.status['github_repo_exists_before'] = self.github.repo_exists(self.name_github, self.github.login)
+            self.github.create_repo(self.name_github)
             self.bar.update()
             owner = self.github.login
             password = self.github.token
-            auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.repo_name}.git'
+            auth_https_url = f'https://{owner}:{password}@github.com/{owner}/{self.name_github}.git'
             self.raise_if_not_running()
-            remote = self.git_repo.create_remote(f'github_{self.repo_name}', auth_https_url)
+            remote = self.git_cmd.create_remote(f'github_{self.name_github}', auth_https_url)
             self.raise_if_not_running()
             self.bar.set_msg('Pushing to GitHub')
             remote.push()
@@ -213,6 +215,14 @@ class TaskPushToGitHub(TaskBase):
             self.exc.append(e)
             if not self.suppress_exceptions:
                 raise
+
+    def rollback(self):
+        super().rollback()
+        if not self.status['github_repo_exists_before']:
+            try:
+                self.github.delete_repo(self.name_github, self.github.login)
+            except Exception:
+                pass
 
 
 class TaskExportProject(TaskBase):
@@ -246,20 +256,31 @@ class TaskExportProject(TaskBase):
                     self.github.delete_repo(self.name_github, self.github.login)
                     self.bar.set_msg('GitHub project deleted')
 
-            fetch = TaskFetchGitlabProject(self.gitlab, self.name_gitlab, self.base_dir, self.bar,
-                                           suppress_exceptions=False)
-            self.subtasks.append(fetch)
+            task_fetch_gitlab_project = TaskFetchGitlabProject(
+                gitlab=self.gitlab,
+                name_gitlab=self.name_gitlab,
+                base_dir=self.base_dir,
+                bar=self.bar,
+                suppress_exceptions=False
+            )
+            self.subtasks.append(task_fetch_gitlab_project)
             self.raise_if_not_running()
             self.bar.set_msg('Starting fetching GitLab project')
-            repo = fetch.run()
+            git_cmd = task_fetch_gitlab_project.run()
             self.bar.set_msg('Fetching GitLab project done')
 
-            push = TaskPushToGitHub(self.github, repo, self.name_github, self.bar, self.conflict_policy,
-                                    suppress_exceptions=False)
-            self.subtasks.append(push)
+            task_push_to_github = TaskPushToGitHub(
+                github=self.github,
+                git_cmd=git_cmd,
+                name_github=self.name_github,
+                bar=self.bar,
+                conflict_policy=self.conflict_policy,
+                suppress_exceptions=False
+            )
+            self.subtasks.append(task_push_to_github)
             self.raise_if_not_running()
             self.bar.set_msg('Starting pushing to GitHub')
-            push.run()
+            task_push_to_github.run()
             self.bar.set_msg_and_finish('DONE')
             self.running = False
         except Exception as e:
@@ -267,9 +288,6 @@ class TaskExportProject(TaskBase):
             self.exc.append(e)
             if not self.suppress_exceptions:
                 raise
-
-    def rollback(self):
-        pass
 
 
 class ProgressBarWrapper:

@@ -1,28 +1,11 @@
 import click
 import configparser
-import logging
-import pathlib
-import time
+
 from requests import HTTPError
 
+from .logger import ExporterLogger
 from .logic import Exporter, GitLabClient, GitHubClient
 from .config import ConfigLoader, ProjectLoader
-
-
-class ExporterLogger:
-
-    def __init__(self, debug=False, log_dir=None):
-        self.log_dir = pathlib.Path(log_dir or 'logs')
-        self.log_dir.mkdir(exist_ok=True, parents=True)
-        self.level = logging.DEBUG if debug else logging.INFO
-        logging.basicConfig(filename=(self.log_dir / time.strftime("%d%m%Y_%H%M%S")).with_suffix(".log"),
-                            filemode='w',
-                            level=self.level,
-                            format='%(asctime)s: %(message)s',
-                            datefmt='%d-%m-%Y %H:%M:%S %Z %z')
-
-    def info(self, msg):
-        logging.info(msg)
 
 
 def load_all_gitlab_projects(gitlab):

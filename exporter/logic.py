@@ -11,6 +11,7 @@ import uuid
 import git
 
 from .helpers import ensure_tmp_dir, rndstr
+from .logger import ExporterLogger
 
 
 class GitHubClient:
@@ -227,7 +228,8 @@ class TaskPushToGitHub(TaskBase):
 
 class TaskExportProject(TaskBase):
 
-    def __init__(self, gitlab, github, name_gitlab, name_github, base_dir, bar, conflict_policy, suppress_exceptions):
+    def __init__(self, gitlab, github, name_gitlab, name_github, base_dir, bar, conflict_policy, suppress_exceptions,
+                 spawn_logger=False, debug=False):
         super().__init__()
         self.gitlab = gitlab
         self.github = github
@@ -236,11 +238,22 @@ class TaskExportProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
-        self.id = f'{name_gitlab} -> {name_github}'
+        self.id = f'{name_gitlab}___{name_github}'
         self.suppress_exceptions = suppress_exceptions
+        self.debug = debug
+        self.logger = None
+        self.spawn_logger = spawn_logger
+
+    def pre_run_hooks(self):
+        if self.spawn_logger:
+            self.logger = ExporterLogger(
+                debug=self.debug,
+                log_file=self.id
+            )
 
     def run(self):
         try:
+            self.pre_run_hooks()
             self.running = True
             if self.github.repo_exists(self.name_github, self.github.login):
                 if self.conflict_policy in ['skip', 'porcelain']:
@@ -378,6 +391,7 @@ class Exporter:
                 projects=projects,
                 tmp_dir=tmp_dir,
                 conflict_policy=conflict_policy,
+                debug=self.debug,
                 suppress_exceptions=not self.debug
             )
             self._execute_tasks(
@@ -392,7 +406,7 @@ class Exporter:
             shutil.rmtree(tmp_dir)
 
     @staticmethod
-    def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy, suppress_exceptions):
+    def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy, debug, suppress_exceptions):
         tasks = []
         bar_task = TaskProgressBarPool()
         for name_gitlab, name_github in projects:
@@ -401,15 +415,23 @@ class Exporter:
             else:
                 bar_msg = f'[{name_gitlab} -> {name_github}]'
             bar = bar_task.register(bar_msg, 5)
-            tasks.append(TaskExportProject(gitlab, github, name_gitlab, name_github, tmp_dir, bar,
-                                           conflict_policy, suppress_exceptions=suppress_exceptions))
+            tasks.append(TaskExportProject(
+                gitlab=gitlab,
+                github=github,
+                name_gitlab=name_gitlab, name_github=name_github,
+                base_dir=tmp_dir,
+                bar=bar,
+                conflict_policy=conflict_policy,
+                suppress_exceptions=suppress_exceptions,
+                debug=debug
+            ))
         tasks.append(bar_task)
         return tasks
 
     @staticmethod
     def _execute_tasks(tasks, threads):
         for task in tasks:
-            t = Thread(target=task.run)
+            t = Thread(target=task.run, args=())
             t.start()
             threads.append(t)
         for t in threads:

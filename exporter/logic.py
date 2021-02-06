@@ -286,6 +286,7 @@ class TaskExportProject(TaskBase):
         except Exception as e:
             self.running = False
             self.exc.append(e)
+            self.bar.set_msg('ERROR')
             if not self.suppress_exceptions:
                 raise
 

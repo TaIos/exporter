@@ -105,6 +105,7 @@ def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout):
         gitlab=gitlab,
         github=github,
         logger=ExporterLogger(debug=debug),
+        debug=debug
     )
 
     exporter.run(

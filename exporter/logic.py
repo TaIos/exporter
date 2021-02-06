@@ -342,31 +342,38 @@ class TaskProgressBarPool(TaskBase):
 
 class Exporter:
 
-    def __init__(self, github, gitlab, logger):
+    def __init__(self, gitlab, github, logger, debug):
         self.github = github
         self.gitlab = gitlab
         self.logger = logger
+        self.debug = debug
 
     def run(self, projects, conflict_policy, tmp_dir, task_timeout):
         tasks = []
         threads = []
         tmp_dir = ensure_tmp_dir(tmp_dir)
         try:
-            tasks = self._prepare_tasks(self.gitlab, self.github, projects, tmp_dir, conflict_policy)
-            self._execute_tasks(tasks, threads)
+            tasks = self._prepare_tasks(
+                gitlab=self.gitlab,
+                github=self.github,
+                projects=projects,
+                tmp_dir=tmp_dir,
+                conflict_policy=conflict_policy,
+                suppress_exceptions=not self.debug
+            )
+            self._execute_tasks(
+                tasks=tasks,
+                threads=threads
+            )
         except KeyboardInterrupt:
-            click.secho(f'STOPPING', bold=True)
-            self._stop_execution(tasks, threads, task_timeout)
-            self._rollback(tasks)
+            self._handle_keyboard_interrupt(tasks, threads, task_timeout)
         except Exception as e:
-            click.secho(f'ERROR: {e}', fg='red', bold=True)
-            self._stop_execution(tasks, threads, task_timeout)
-            self._rollback(tasks)
+            self._handle_generic_exception(tasks, threads, task_timeout, e)
         finally:
             shutil.rmtree(tmp_dir)
 
     @staticmethod
-    def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy):
+    def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy, suppress_exceptions):
         tasks = []
         bar_task = TaskProgressBarPool()
         for name_gitlab, name_github in projects:
@@ -376,7 +383,7 @@ class Exporter:
                 bar_msg = f'[{name_gitlab} -> {name_github}]'
             bar = bar_task.register(bar_msg, 5)
             tasks.append(TaskExportProject(gitlab, github, name_gitlab, name_github, tmp_dir, bar,
-                                           conflict_policy, suppress_exceptions=True))
+                                           conflict_policy, suppress_exceptions=suppress_exceptions))
         tasks.append(bar_task)
         return tasks
 
@@ -401,3 +408,13 @@ class Exporter:
             task.stop()
         for t in threads:
             t.join(task_timeout)
+
+    def _handle_keyboard_interrupt(self, tasks, threads, task_timeout):
+        click.secho(f'STOPPING', bold=True)
+        self._stop_execution(tasks, threads, task_timeout)
+        self._rollback(tasks)
+
+    def _handle_generic_exception(self, tasks, threads, task_timeout, exception):
+        click.secho(f'ERROR: {exception}', fg='red', bold=True)
+        self._stop_execution(tasks, threads, task_timeout)
+        self._rollback(tasks)

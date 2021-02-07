@@ -106,6 +106,12 @@ class Mutex(click.Option):
         return super(Mutex, self).handle_parse_result(ctx, opts, args)
 
 
+def validate_batch_size(ctx, param, value):
+    if value < 1:
+        raise click.BadParameter('Invalid batch size.')
+    return value
+
+
 @click.command(name='exporter')
 @click.version_option(version='0.0.2')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
@@ -130,7 +136,9 @@ class Mutex(click.Option):
               help='Prevent name conflicts by appending random string at the end of exported project.')
 @click.option('--visibility', default='private', show_default=True, type=click.Choice(['public', 'private']),
               help='Visibility of the exported project on GitHub')
-def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique, visibility):
+@click.option('--batch-size', default=10, show_default=True, callback=validate_batch_size,
+              help='Maximum count of simultaneously running tasks.')
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique, visibility, batch_size):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
@@ -153,5 +161,6 @@ def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export
         projects=projects,
         conflict_policy=conflict_policy,
         tmp_dir=tmp_dir,
-        task_timeout=task_timeout
+        task_timeout=task_timeout,
+        batch_size=batch_size
     )

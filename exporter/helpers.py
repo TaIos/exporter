@@ -20,3 +20,10 @@ def ensure_tmp_dir(path):
                 f"Tmp directory '{p.absolute()}' already exists. Delete it or specify different directory.")
     p.mkdir()
     return p
+
+
+# credit to Carl F.:  https://stackoverflow.com/a/8290508/6784881
+def split_to_batches(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]

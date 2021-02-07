@@ -8,7 +8,7 @@ import enlighten
 
 from threading import Thread
 from abc import ABC
-from .helpers import ensure_tmp_dir, rndstr
+from .helpers import ensure_tmp_dir, rndstr, split_to_batches
 
 
 class GitHubClient:
@@ -395,30 +395,50 @@ class Exporter:
         self.logger = logger
         self.debug = debug
 
-    def run(self, projects, conflict_policy, tmp_dir, task_timeout):
-        tasks = []
+    def run(self, projects, conflict_policy, tmp_dir, task_timeout, batch_size):
+        tasks_batched = []
         threads = []
         tmp_dir = ensure_tmp_dir(tmp_dir)
         try:
-            tasks = self._prepare_tasks(
+            tasks_batched = self._prepare_batched_tasks(
                 gitlab=self.gitlab,
                 github=self.github,
                 projects=projects,
+                batch_size=batch_size,
                 tmp_dir=tmp_dir,
                 conflict_policy=conflict_policy,
                 debug=self.debug,
                 suppress_exceptions=not self.debug
             )
-            self._execute_tasks(
-                tasks=tasks,
-                threads=threads
-            )
+            for tasks in tasks_batched:
+                threads = []
+                self._execute_tasks(
+                    tasks=tasks,
+                    threads=threads
+                )
         except KeyboardInterrupt:
-            self._handle_keyboard_interrupt(tasks, threads, task_timeout)
+            self._handle_keyboard_interrupt(tasks_batched, threads, task_timeout)
         except Exception as e:
-            self._handle_generic_exception(tasks, threads, task_timeout, e)
+            self._handle_generic_exception(tasks_batched, threads, task_timeout, e)
         finally:
             shutil.rmtree(tmp_dir)
+
+    @staticmethod
+    def _prepare_batched_tasks(gitlab, github, projects, tmp_dir, conflict_policy, debug,
+                               suppress_exceptions, batch_size):
+        batched_tasks = []
+        for batch in split_to_batches(projects, batch_size):
+            batched_tasks.append(
+                Exporter._prepare_tasks(gitlab=gitlab,
+                                        github=github,
+                                        projects=batch,
+                                        tmp_dir=tmp_dir,
+                                        conflict_policy=conflict_policy,
+                                        debug=debug,
+                                        suppress_exceptions=suppress_exceptions
+                                        ))
+
+        return batched_tasks
 
     @staticmethod
     def _prepare_tasks(gitlab, github, projects, tmp_dir, conflict_policy, debug, suppress_exceptions):
@@ -474,10 +494,12 @@ class Exporter:
 
     def _handle_keyboard_interrupt(self, tasks, threads, task_timeout):
         click.secho(f'===STOPPING===', bold=True)
-        self._stop_execution(tasks, threads, task_timeout)
-        self._rollback(tasks, self.debug)
+        self._stop_execution(tasks=tasks, threads=threads, task_timeout=task_timeout)
+        self._rollback(tasks=tasks, debug=self.debug)
 
     def _handle_generic_exception(self, tasks, threads, task_timeout, exception):
         click.secho(f'ERROR: {exception}', fg='red', bold=True)
-        self._stop_execution(tasks, threads, task_timeout)
-        self._rollback(tasks, self.debug)
+        self._stop_execution(tasks=tasks, threads=threads, task_timeout=task_timeout)
+        self._rollback(tasks=tasks, debug=self.debug)
+        if self.debug:
+            raise

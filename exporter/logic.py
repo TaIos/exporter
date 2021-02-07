@@ -27,6 +27,9 @@ class GitHubClient:
         self.session.auth = self._token_auth
         self._login = None
 
+    def clone(self):
+        return GitHubClient(self.token)
+
     @property
     def login(self):
         """Return user login name associated with token"""
@@ -88,6 +91,9 @@ class GitLabClient:
         self.session = session or requests.Session()
         self.session.headers = {'User-Agent': 'exporter'}
         self.session.auth = self._token_auth
+
+    def clone(self):
+        return GitLabClient(self.token)
 
     def _token_auth(self, req):
         req.headers['Private-Token'] = self.token
@@ -409,8 +415,8 @@ class Exporter:
                 bar_msg = f'[{name_gitlab} -> {name_github}]'
             bar = bar_task.register(bar_msg, 5)
             tasks.append(TaskExportProject(
-                gitlab=gitlab,
-                github=github,
+                gitlab=gitlab.clone(),
+                github=github.clone(),
                 name_gitlab=name_gitlab,
                 name_github=name_github,
                 is_github_private=visibility_github == 'private',

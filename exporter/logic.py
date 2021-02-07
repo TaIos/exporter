@@ -145,7 +145,7 @@ class TaskBase(ABC):
 
 class TaskFetchGitlabProject(TaskBase):
 
-    def __init__(self, gitlab, name_gitlab, base_dir, bar, suppress_exceptions):
+    def __init__(self, gitlab, name_gitlab, base_dir, bar, suppress_exceptions, debug):
         super().__init__()
         self.gitlab = gitlab
         self.name_gitlab = name_gitlab
@@ -153,6 +153,7 @@ class TaskFetchGitlabProject(TaskBase):
         self.bar = bar
         self.suppress_exceptions = suppress_exceptions
         self.id = name_gitlab
+        self.debug = debug
 
     def run(self):
         try:
@@ -181,13 +182,16 @@ class TaskFetchGitlabProject(TaskBase):
             return git_cmd
         except Exception as e:
             self.running = False
+            self.exc.append(e)
+            if self.debug:
+                click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             if not self.suppress_exceptions:
                 raise
 
 
 class TaskPushToGitHub(TaskBase):
 
-    def __init__(self, github, git_cmd, name_github, is_private, bar, suppress_exceptions):
+    def __init__(self, github, git_cmd, name_github, is_private, bar, suppress_exceptions, debug):
         super().__init__()
         self.github = github
         self.git_cmd = git_cmd
@@ -196,6 +200,7 @@ class TaskPushToGitHub(TaskBase):
         self.bar = bar
         self.id = git_cmd
         self.suppress_exceptions = suppress_exceptions
+        self.debug = debug
 
     def run(self):
         try:
@@ -216,6 +221,8 @@ class TaskPushToGitHub(TaskBase):
         except Exception as e:
             self.running = False
             self.exc.append(e)
+            if self.debug:
+                click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             if not self.suppress_exceptions:
                 raise
 
@@ -223,7 +230,7 @@ class TaskPushToGitHub(TaskBase):
 class TaskExportProject(TaskBase):
 
     def __init__(self, gitlab, github, name_gitlab, name_github, is_github_private,
-                 base_dir, bar, conflict_policy, suppress_exceptions):
+                 base_dir, bar, conflict_policy, suppress_exceptions, debug):
         super().__init__()
         self.gitlab = gitlab
         self.github = github
@@ -236,6 +243,7 @@ class TaskExportProject(TaskBase):
         self.id = f'{name_gitlab}->{name_github}'
         self.suppress_exceptions = suppress_exceptions
         self.github_repo_existed = None
+        self.debug = debug
 
     def run(self):
         try:
@@ -260,7 +268,8 @@ class TaskExportProject(TaskBase):
                 name_gitlab=self.name_gitlab,
                 base_dir=self.base_dir,
                 bar=self.bar,
-                suppress_exceptions=False
+                suppress_exceptions=False,
+                debug=self.debug
             )
             self.subtasks.append(task_fetch_gitlab_project)
             self.raise_if_not_running()
@@ -274,7 +283,8 @@ class TaskExportProject(TaskBase):
                 name_github=self.name_github,
                 is_private=self.is_github_private,
                 bar=self.bar,
-                suppress_exceptions=False
+                suppress_exceptions=False,
+                debug=self.debug
             )
             self.subtasks.append(task_push_to_github)
             self.raise_if_not_running()
@@ -286,21 +296,28 @@ class TaskExportProject(TaskBase):
             self.running = False
             self.exc.append(e)
             self.bar.set_msg('RUN ERROR')
+            if self.debug:
+                click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             if not self.suppress_exceptions:
                 raise
 
     def rollback(self):
         try:
             for task in self.subtasks:
-                task.rollback()
+                try:
+                    task.rollback()
+                except Exception as e:
+                    pass
             if not self.github_repo_existed:
                 self.github.delete_repo(self.name_github, self.github.login)
             self.bar.set_msg('ROLLBACKED')
         except Exception as e:
+            self.bar.set_msg('ROLLBACK ERROR')
+            if self.debug:
+                click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
+            self.exc.append(e)
             if not self.suppress_exceptions:
                 raise
-            self.exc.append(e)
-            self.bar.set_msg('ROLLBACK ERROR')
 
 
 class ProgressBarWrapper:
@@ -423,7 +440,8 @@ class Exporter:
                 base_dir=tmp_dir,
                 bar=bar,
                 conflict_policy=conflict_policy,
-                suppress_exceptions=suppress_exceptions
+                suppress_exceptions=suppress_exceptions,
+                debug=debug
             ))
         tasks.append(bar_task)
         return tasks
@@ -438,10 +456,15 @@ class Exporter:
             t.join()
 
     @staticmethod
-    def _rollback(tasks):
+    def _rollback(tasks, debug):
         for task in tasks:
-            click.echo(f"ROLLBACK: '{task.id}'")
-            task.rollback()
+            try:
+                task.rollback()
+                click.echo(f"ROLLBACK: '{task.id}' successfull")
+            except Exception as e:
+                click.secho(f'ROLLBACK: error', fg='red', bold=True)
+                if debug:
+                    click.secho(f'{e}', fg='red', bold=True)
 
     @staticmethod
     def _stop_execution(tasks, threads, task_timeout):
@@ -452,10 +475,10 @@ class Exporter:
 
     def _handle_keyboard_interrupt(self, tasks, threads, task_timeout):
         click.secho(f'STOPPING', bold=True)
-        self._stop_execution(tasks, threads, task_timeout)
+        self._stop_execution(tasks, threads, task_timeout, self.debug)
         self._rollback(tasks)
 
     def _handle_generic_exception(self, tasks, threads, task_timeout, exception):
         click.secho(f'ERROR: {exception}', fg='red', bold=True)
-        self._stop_execution(tasks, threads, task_timeout)
+        self._stop_execution(tasks, threads, task_timeout, self.debug)
         self._rollback(tasks)

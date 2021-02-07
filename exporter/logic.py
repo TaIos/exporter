@@ -251,7 +251,7 @@ class TaskExportProject(TaskBase):
             self.running = True
             self.github_repo_existed = self.github.repo_exists(self.name_github, self.github.login)
             if self.github_repo_existed:
-                if self.conflict_policy in ['skip', 'porcelain']:
+                if self.conflict_policy in ['skip']:
                     click.echo(
                         f"Skipping export for GitLab project '{self.name_gitlab}'. "
                         f"Project name '{self.name_github}' already exists on GitHub.")

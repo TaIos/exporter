@@ -124,11 +124,10 @@ def validate_batch_size(ctx, param, value):
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')
 @click.option('--debug', default=False, is_flag=True,
               help='Enable debug logs.')
-@click.option('--conflict-policy', type=click.Choice(['skip', 'overwrite', 'porcelain']),
+@click.option('--conflict-policy', type=click.Choice(['skip', 'overwrite']),
               default='skip', help='If GitHub already contains repo with the same name as exported repo\n'
                                    '[skip]: do not export conflict repo and continue to the next one\n'
-                                   '[overwrite]: overwrite conflict repo with exported repo\n'
-                                   '[porcelain]: undo all export from progress from GitHub and end')
+                                   '[overwrite]: overwrite conflict repo with exported repo\n')
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
 @click.option('--task-timeout', help='Floating point number specifying a timeout for the unresponding task.',
               default=1.0, callback=validate_timeout)

@@ -9,6 +9,7 @@ import enlighten
 from threading import Thread
 from abc import ABC
 from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
+from .printer import ExporterPrinter
 
 
 class GitHubClient:
@@ -432,6 +433,11 @@ class Exporter:
         except Exception as e:
             self._handle_generic_exception(runned_tasks, running_threads, task_timeout, e)
         finally:
+            ExporterPrinter.report(
+                tasks=flatten(tasks_batched),
+                runned_tasks=runned_tasks,
+                logger=self.logger
+            )
             shutil.rmtree(tmp_dir)
 
     @staticmethod

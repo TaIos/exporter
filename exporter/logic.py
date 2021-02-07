@@ -8,7 +8,7 @@ import enlighten
 
 from threading import Thread
 from abc import ABC
-from .helpers import ensure_tmp_dir, rndstr, split_to_batches
+from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
 
 
 class GitHubClient:
@@ -397,7 +397,8 @@ class Exporter:
 
     def run(self, projects, conflict_policy, tmp_dir, task_timeout, batch_size):
         tasks_batched = []
-        threads = []
+        running_threads = []
+        runned_tasks = []
         tmp_dir = ensure_tmp_dir(tmp_dir)
         try:
             tasks_batched = self._prepare_batched_tasks(
@@ -411,15 +412,16 @@ class Exporter:
                 suppress_exceptions=not self.debug
             )
             for tasks in tasks_batched:
-                threads = []
+                running_threads = []
+                runned_tasks += tasks
                 self._execute_tasks(
                     tasks=tasks,
-                    threads=threads
+                    threads=running_threads
                 )
         except KeyboardInterrupt:
-            self._handle_keyboard_interrupt(tasks_batched, threads, task_timeout)
+            self._handle_keyboard_interrupt(runned_tasks, running_threads, task_timeout)
         except Exception as e:
-            self._handle_generic_exception(tasks_batched, threads, task_timeout, e)
+            self._handle_generic_exception(runned_tasks, running_threads, task_timeout, e)
         finally:
             shutil.rmtree(tmp_dir)
 

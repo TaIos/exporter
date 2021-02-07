@@ -27,3 +27,11 @@ def split_to_batches(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
         yield iterable[ndx:min(ndx + n, l)]
+
+
+def flatten(t):
+    flat_list = []
+    for sublist in t:
+        for item in sublist:
+            flat_list.append(item)
+    return flat_list

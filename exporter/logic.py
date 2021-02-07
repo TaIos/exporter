@@ -9,7 +9,6 @@ import enlighten
 from threading import Thread
 from abc import ABC
 from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
-from .printer import ExporterPrinter
 
 
 class GitHubClient:
@@ -126,6 +125,7 @@ class TaskBase(ABC):
         self.exc = []  # list of caught exceptions during execution
         self.subtasks = []  # list of subtasks used by this task
         self.suppress_exceptions = False  # if false suppress any exception throwing
+        self.status = set()
 
     def run(self):
         pass
@@ -262,17 +262,13 @@ class TaskExportProject(TaskBase):
             self.running = True
             self.github_repo_existed = self.github.repo_exists(self.name_github, self.github.login)
             if self.github_repo_existed:
-                if self.conflict_policy in ['skip']:
-                    click.echo(
-                        f"Skipping export for GitLab project '{self.name_gitlab}'. "
-                        f"Project name '{self.name_github}' already exists on GitHub.")
+                if self.conflict_policy == 'skip':
                     self.bar.set_msg_and_finish('SKIPPED')
                     self.status.add(self.SKIPPED)
                     self.running = False
                     return
                 elif self.conflict_policy in ['overwrite']:
                     self.bar.set_msg('Deleting GitHubProject')
-                    click.echo(f'Overwriting GitHub project {self.name_github}')
                     self.github.delete_repo(self.name_github, self.github.login)
                     self.bar.set_msg('GitHub project deleted')
                     self.status.add(self.OVERWRITTEN)
@@ -451,10 +447,9 @@ class Exporter:
         except Exception as e:
             self._handle_generic_exception(runned_tasks, running_threads, task_timeout, e)
         finally:
-            ExporterPrinter.report(
+            ExporterPrinter(logger=self.logger).report(
                 tasks=flatten(tasks_batched),
-                runned_tasks=runned_tasks,
-                logger=self.logger
+                runned_tasks=runned_tasks
             )
             shutil.rmtree(tmp_dir)
 
@@ -537,3 +532,48 @@ class Exporter:
         self._rollback(tasks=tasks, debug=self.debug)
         if self.debug:
             raise
+
+
+class ExporterPrinter:
+
+    def __init__(self, logger):
+        self.logger = logger
+
+    @staticmethod
+    def _prefix_error():
+        click.secho('  => ', bold=True, nl=False)
+        click.secho('ERROR', fg='magenta', bold=True, nl=False)
+        click.echo(' - ', nl=False)
+
+    @staticmethod
+    def _prefix_result():
+        click.secho('  => ', bold=True, nl=False)
+
+    def report(self, tasks, runned_tasks):
+        runned_id = set(map(lambda x: x.id, runned_tasks))
+        for t in tasks:
+            if t.id in runned_id:
+                if TaskExportProject.SUCCESS in t.status:
+                    click.secho(f'Export {t.id} SUCCESS')
+                elif TaskExportProject.SKIPPED in t.status:
+                    click.secho(f'Export {t.id} SKIPPED')
+            else:
+                click.secho(f'Export {t.id} NOT STARTED')
+
+    def _success(self, task):
+        ...
+
+    def _skipped(self, task):
+        ...
+
+    def _rollbacked(self, task):
+        ...
+
+    def _error(self, task):
+        ...
+
+    def _not_runned(self, task):
+        ...
+
+    def log(self, task, msg):
+        self.logger.info(f'{task.id}: {msg}')

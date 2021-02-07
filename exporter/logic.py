@@ -242,7 +242,7 @@ class TaskExportProject(TaskBase):
         self.base_dir = base_dir
         self.bar = bar
         self.conflict_policy = conflict_policy
-        self.id = f'{name_gitlab}___{name_github}'
+        self.id = f'{name_gitlab}->{name_github}'
         self.suppress_exceptions = suppress_exceptions
         self.debug = debug
         self.logger = None

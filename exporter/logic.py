@@ -198,7 +198,7 @@ class TaskPushToGitHub(TaskBase):
         self.name_github = name_github
         self.is_private = is_private
         self.bar = bar
-        self.id = git_cmd
+        self.id = name_github
         self.suppress_exceptions = suppress_exceptions
         self.debug = debug
 
@@ -215,7 +215,8 @@ class TaskPushToGitHub(TaskBase):
             remote = self.git_cmd.create_remote(f'github_{self.name_github}', auth_https_url)
             self.raise_if_not_running()
             self.bar.set_msg('Pushing to GitHub')
-            remote.push()  # TODO: check for pushing to EMPTY git repo
+            if int(self.git_cmd.git.rev_list('--all', '--count')) > 1:  # no commits, git can't push
+                remote.push()
             self.bar.set_msg_and_update('Pushing to GitHub done')
             self.running = False
         except Exception as e:

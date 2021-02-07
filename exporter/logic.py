@@ -71,7 +71,6 @@ class GitHubClient:
         data = data or dict()
         data['name'] = repo_name
         data['private'] = is_private
-        print(repo_name, is_private)
         self._post(f'{self.API}/user/repos', data)
 
 
@@ -182,23 +181,20 @@ class TaskFetchGitlabProject(TaskBase):
 
 class TaskPushToGitHub(TaskBase):
 
-    def __init__(self, github, git_cmd, name_github, is_private, bar, conflict_policy, suppress_exceptions):
+    def __init__(self, github, git_cmd, name_github, is_private, bar, suppress_exceptions):
         super().__init__()
         self.github = github
         self.git_cmd = git_cmd
         self.name_github = name_github
         self.is_private = is_private
         self.bar = bar
-        self.conflict_policy = conflict_policy
         self.id = git_cmd
         self.suppress_exceptions = suppress_exceptions
-        self.status = dict()
 
     def run(self):
         try:
             self.running = True
             self.bar.set_msg('Creating GitHub repo')
-            self.status['github_repo_exists_before'] = self.github.repo_exists(self.name_github, self.github.login)
             self.github.create_repo(repo_name=self.name_github, is_private=self.is_private)
             self.bar.update()
             owner = self.github.login
@@ -217,14 +213,6 @@ class TaskPushToGitHub(TaskBase):
             if not self.suppress_exceptions:
                 raise
 
-    def rollback(self):
-        super().rollback()
-        if not self.status['github_repo_exists_before']:
-            try:
-                self.github.delete_repo(self.name_github, self.github.login)
-            except Exception:
-                pass
-
 
 class TaskExportProject(TaskBase):
 
@@ -241,11 +229,13 @@ class TaskExportProject(TaskBase):
         self.conflict_policy = conflict_policy
         self.id = f'{name_gitlab}->{name_github}'
         self.suppress_exceptions = suppress_exceptions
+        self.github_repo_existed = None
 
     def run(self):
         try:
             self.running = True
-            if self.github.repo_exists(self.name_github, self.github.login):
+            self.github_repo_existed = self.github.repo_exists(self.name_github, self.github.login)
+            if self.github_repo_existed:
                 if self.conflict_policy in ['skip', 'porcelain']:
                     print(
                         f"Skipping export for GitLab project '{self.name_gitlab}'. "
@@ -278,7 +268,6 @@ class TaskExportProject(TaskBase):
                 name_github=self.name_github,
                 is_private=self.is_github_private,
                 bar=self.bar,
-                conflict_policy=self.conflict_policy,
                 suppress_exceptions=False
             )
             self.subtasks.append(task_push_to_github)
@@ -290,9 +279,22 @@ class TaskExportProject(TaskBase):
         except Exception as e:
             self.running = False
             self.exc.append(e)
-            self.bar.set_msg('ERROR')
+            self.bar.set_msg('RUN ERROR')
             if not self.suppress_exceptions:
                 raise
+
+    def rollback(self):
+        try:
+            for task in self.subtasks:
+                task.rollback()
+            if not self.github_repo_existed:
+                self.github.delete_repo(self.name_github, self.github.login)
+            self.bar.set_msg('ROLLBACKED')
+        except Exception as e:
+            if not self.suppress_exceptions:
+                raise
+            self.exc.append(e)
+            self.bar.set_msg('ROLLBACK ERROR')
 
 
 class ProgressBarWrapper:

@@ -318,9 +318,9 @@ class TaskExportProject(TaskBase):
 
 class ProgressBarWrapper:
 
-    def __init__(self, bar):
+    def __init__(self, bar, initial_message):
         self.bar = bar
-        self.set_msg('')
+        self.set_msg(initial_message)
 
     def update(self):
         self.bar.update()
@@ -364,10 +364,18 @@ class TaskProgressBarPool(TaskBase):
         self.bar_format = '{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}d}/{total:d} [{unit}]'
         self.id = 'Progress Bar'
 
-    def register(self, name, total):
-        bar = self.manager.counter(total=total, desc=name, unit="ticks", color="red", bar_format=self.bar_format,
-                                   autorefresh=False, threaded=True)
-        bar_wrapper = ProgressBarWrapper(bar)
+    def register(self, name, total, initial_message):
+        bar = self.manager.counter(
+            total=total,
+            desc=name,
+            unit="ticks",
+            color="red",
+            bar_format=self.bar_format,
+            autorefresh=False,
+            threaded=True,
+            no_resize=False
+        )
+        bar_wrapper = ProgressBarWrapper(bar, initial_message=initial_message)
         self.pool.append(bar_wrapper)
         return bar_wrapper
 
@@ -447,11 +455,11 @@ class Exporter:
         tasks = []
         bar_task = TaskProgressBarPool()
         for name_gitlab, name_github, visibility_github in projects:
-            if name_gitlab == name_github:
-                bar_msg = f'[{name_gitlab}]'
-            else:
-                bar_msg = f'[{name_gitlab} -> {name_github}]'
-            bar = bar_task.register(bar_msg, 5)
+            bar = bar_task.register(
+                name=f'[{name_gitlab}]' if name_gitlab == name_github else f'[{name_gitlab} -> {name_github}]',
+                total=5,
+                initial_message='WAITING'
+            )
             tasks.append(TaskExportProject(
                 gitlab=gitlab.clone(),
                 github=github.clone(),

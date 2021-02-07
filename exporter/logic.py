@@ -215,7 +215,7 @@ class TaskPushToGitHub(TaskBase):
             remote = self.git_cmd.create_remote(f'github_{self.name_github}', auth_https_url)
             self.raise_if_not_running()
             self.bar.set_msg('Pushing to GitHub')
-            remote.push()
+            remote.push()  # TODO: check for pushing to EMPTY git repo
             self.bar.set_msg_and_update('Pushing to GitHub done')
             self.running = False
         except Exception as e:
@@ -251,7 +251,7 @@ class TaskExportProject(TaskBase):
             self.github_repo_existed = self.github.repo_exists(self.name_github, self.github.login)
             if self.github_repo_existed:
                 if self.conflict_policy in ['skip', 'porcelain']:
-                    print(
+                    click.echo(
                         f"Skipping export for GitLab project '{self.name_gitlab}'. "
                         f"Project name '{self.name_github}' already exists on GitHub.")
                     self.bar.set_msg_and_finish('SKIPPED')
@@ -259,7 +259,7 @@ class TaskExportProject(TaskBase):
                     return
                 elif self.conflict_policy in ['overwrite']:
                     self.bar.set_msg('Deleting GitHubProject')
-                    print(f'Overwriting GitHub project {self.name_github}')
+                    click.echo(f'Overwriting GitHub project {self.name_github}')
                     self.github.delete_repo(self.name_github, self.github.login)
                     self.bar.set_msg('GitHub project deleted')
 
@@ -294,11 +294,11 @@ class TaskExportProject(TaskBase):
             self.running = False
         except (InterruptedError, KeyboardInterrupt):
             self.running = False
-            self.bar.set_msg('INTERRUPTED')
+            self.bar.set_msg_and_finish('INTERRUPTED')
         except Exception as e:
             self.running = False
             self.exc.append(e)
-            self.bar.set_msg('RUN ERROR')
+            self.bar.set_msg_and_finish('RUN ERROR')
             if self.debug:
                 click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             if not self.suppress_exceptions:
@@ -447,7 +447,6 @@ class Exporter:
                                         debug=debug,
                                         suppress_exceptions=suppress_exceptions
                                         ))
-
         return batched_tasks
 
     @staticmethod

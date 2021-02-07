@@ -62,7 +62,7 @@ def validate_timeout(ctx, param, value):
     valid = True
     try:
         timeout = float(value)
-        if timeout < 0 or timeout > 1000:
+        if timeout < 1 or timeout > 60:
             valid = False
     except Exception:
         valid = False
@@ -124,8 +124,8 @@ class Mutex(click.Option):
                                    '[overwrite]: overwrite conflict repo with exported repo\n'
                                    '[porcelain]: undo all export from progress from GitHub and end')
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
-@click.option('--task-timeout', help='Floating point number specifying a timeout for the task.', default=10.0,
-              callback=validate_timeout)
+@click.option('--task-timeout', help='Floating point number specifying a timeout for the unresponding task.',
+              default=1.0, callback=validate_timeout)
 @click.option('--unique', is_flag=True, default=False,
               help='Prevent name conflicts by appending random string at the end of exported project.')
 @click.option('--visibility', default='private', show_default=True, type=click.Choice(['public', 'private']),

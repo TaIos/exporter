@@ -292,6 +292,9 @@ class TaskExportProject(TaskBase):
             task_push_to_github.run()
             self.bar.set_msg_and_finish('DONE')
             self.running = False
+        except (InterruptedError, KeyboardInterrupt):
+            self.running = False
+            self.bar.set_msg('INTERRUPTED')
         except Exception as e:
             self.running = False
             self.exc.append(e)
@@ -303,21 +306,14 @@ class TaskExportProject(TaskBase):
 
     def rollback(self):
         try:
-            for task in self.subtasks:
-                try:
-                    task.rollback()
-                except Exception as e:
-                    pass
-            if not self.github_repo_existed:
+            if not self.github_repo_existed and self.github.repo_exists(self.name_github, self.github.login):
                 self.github.delete_repo(self.name_github, self.github.login)
             self.bar.set_msg('ROLLBACKED')
         except Exception as e:
             self.bar.set_msg('ROLLBACK ERROR')
             if self.debug:
                 click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
-            self.exc.append(e)
-            if not self.suppress_exceptions:
-                raise
+            raise
 
 
 class ProgressBarWrapper:
@@ -375,11 +371,14 @@ class TaskProgressBarPool(TaskBase):
         self.pool.append(bar_wrapper)
         return bar_wrapper
 
+    def refresh(self):
+        for bar in self.pool:
+            bar.refresh()
+
     def run(self):
         self.running = True
         while not all([x.is_finished() for x in self.pool]) and self.running:
-            for bar in self.pool:
-                bar.refresh()
+            self.refresh()
         for bar in self.pool:
             bar.close()
         try:
@@ -462,7 +461,7 @@ class Exporter:
                 task.rollback()
                 click.echo(f"ROLLBACK: '{task.id}' successfull")
             except Exception as e:
-                click.secho(f'ROLLBACK: error', fg='red', bold=True)
+                click.secho(f'ROLLBACK: {task.id} error', fg='red', bold=True)
                 if debug:
                     click.secho(f'{e}', fg='red', bold=True)
 
@@ -474,11 +473,11 @@ class Exporter:
             t.join(task_timeout)
 
     def _handle_keyboard_interrupt(self, tasks, threads, task_timeout):
-        click.secho(f'STOPPING', bold=True)
-        self._stop_execution(tasks, threads, task_timeout, self.debug)
-        self._rollback(tasks)
+        click.secho(f'===STOPPING===', bold=True)
+        self._stop_execution(tasks, threads, task_timeout)
+        self._rollback(tasks, self.debug)
 
     def _handle_generic_exception(self, tasks, threads, task_timeout, exception):
         click.secho(f'ERROR: {exception}', fg='red', bold=True)
-        self._stop_execution(tasks, threads, task_timeout, self.debug)
-        self._rollback(tasks)
+        self._stop_execution(tasks, threads, task_timeout)
+        self._rollback(tasks, self.debug)

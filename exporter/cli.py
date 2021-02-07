@@ -6,7 +6,7 @@ from requests import HTTPError
 from .helpers import rndstr
 from .logger import ExporterLogger
 from .logic import Exporter, GitLabClient, GitHubClient
-from .config import ConfigLoader, ProjectLoader
+from .config import ConfigLoader, ProjectLoader, ProjectNormalizer
 
 
 def load_all_gitlab_projects(gitlab):
@@ -75,7 +75,13 @@ def validate_timeout(ctx, param, value):
 def make_unique_projects(projects, random_suffix_length):
     for p in projects:
         p[1] = p[1] + '_' + rndstr(random_suffix_length)
-    return projects
+
+
+def normalize_projects(projects, visibility):
+    try:
+        ProjectNormalizer.normalize(projects, visibility)
+    except Exception as e:
+        raise click.BadParameter(e)
 
 
 # credit: Stephen Rauch, https://stackoverflow.com/a/51235564/6784881
@@ -122,16 +128,19 @@ class Mutex(click.Option):
               callback=validate_timeout)
 @click.option('--unique', is_flag=True, default=False,
               help='Prevent name conflicts by appending random string at the end of exported project.')
-def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique):
+@click.option('--visibility', default='private', show_default=True, type=click.Choice(['public', 'private']),
+              help='Visibility of the exported project on GitHub')
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique, visibility):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
 
     if export_all:
         projects = load_all_gitlab_projects(gitlab)
-
     if unique:
-        projects = make_unique_projects(projects, random_suffix_length=6)
+        make_unique_projects(projects, random_suffix_length=6)
+
+    normalize_projects(projects, visibility)
 
     exporter = Exporter(
         gitlab=gitlab,

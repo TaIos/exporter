@@ -1,17 +1,14 @@
 import click
 import requests
 import re
-from threading import Thread
-from abc import ABC
-import enlighten
 import shutil
 import uuid
+import git  # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
+import enlighten
 
-# API reference: https://gitpython.readthedocs.io/en/stable/reference.html
-import git
-
+from threading import Thread
+from abc import ABC
 from .helpers import ensure_tmp_dir, rndstr
-from .logger import ExporterLogger
 
 
 class GitHubClient:
@@ -232,7 +229,7 @@ class TaskPushToGitHub(TaskBase):
 class TaskExportProject(TaskBase):
 
     def __init__(self, gitlab, github, name_gitlab, name_github, is_github_private,
-                 base_dir, bar, conflict_policy, suppress_exceptions, spawn_logger=False, debug=False):
+                 base_dir, bar, conflict_policy, suppress_exceptions):
         super().__init__()
         self.gitlab = gitlab
         self.github = github
@@ -244,20 +241,9 @@ class TaskExportProject(TaskBase):
         self.conflict_policy = conflict_policy
         self.id = f'{name_gitlab}->{name_github}'
         self.suppress_exceptions = suppress_exceptions
-        self.debug = debug
-        self.logger = None
-        self.spawn_logger = spawn_logger
-
-    def pre_run_hooks(self):
-        if self.spawn_logger:
-            self.logger = ExporterLogger(
-                debug=self.debug,
-                log_file=self.id
-            )
 
     def run(self):
         try:
-            self.pre_run_hooks()
             self.running = True
             if self.github.repo_exists(self.name_github, self.github.login):
                 if self.conflict_policy in ['skip', 'porcelain']:
@@ -429,8 +415,7 @@ class Exporter:
                 base_dir=tmp_dir,
                 bar=bar,
                 conflict_policy=conflict_policy,
-                suppress_exceptions=suppress_exceptions,
-                debug=debug
+                suppress_exceptions=suppress_exceptions
             ))
         tasks.append(bar_task)
         return tasks

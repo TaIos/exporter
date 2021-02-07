@@ -145,7 +145,7 @@ def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export
     exporter = Exporter(
         gitlab=gitlab,
         github=github,
-        logger=ExporterLogger(debug=debug),
+        logger=ExporterLogger(),
         debug=debug
     )
 

@@ -5,9 +5,9 @@ import time
 
 class ExporterLogger:
 
-    def __init__(self, debug=False, log_dir=None, log_file=None):
-        self.log_dir = pathlib.Path(log_dir or 'logs') / time.strftime("%d%m%Y_%H%M%S")
-        self.log_file = log_file or 'main'
+    def __init__(self, debug=True, log_dir=None, log_file=None):
+        self.log_dir = pathlib.Path(log_dir or 'logs')
+        self.log_file = log_file or time.strftime("%d%m%Y_%H%M%S")
         self.log_dir.mkdir(exist_ok=True, parents=True)
         self.level = logging.DEBUG if debug else logging.INFO
         logging.basicConfig(

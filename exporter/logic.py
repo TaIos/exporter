@@ -230,6 +230,15 @@ class TaskPushToGitHub(TaskBase):
 
 
 class TaskExportProject(TaskBase):
+    # status constants
+    SKIPPED = 'SKIPPED'
+    OVERWRITTEN = 'OVERWRITTEN'
+    FETCHED = 'FETCHED'
+    SUCCESS = 'SUCCESS'
+    INTERRUPTED = 'INTERRUPTED'
+    ERROR = 'ERROR'
+    ROLLBACKED = 'ROLLBACKED'
+    ROLLBACKED_ERROR = 'ROLLBACKED_ERROR'
 
     def __init__(self, gitlab, github, name_gitlab, name_github, is_github_private,
                  base_dir, bar, conflict_policy, suppress_exceptions, debug):
@@ -246,6 +255,7 @@ class TaskExportProject(TaskBase):
         self.suppress_exceptions = suppress_exceptions
         self.github_repo_existed = None
         self.debug = debug
+        self.status = set()
 
     def run(self):
         try:
@@ -257,6 +267,7 @@ class TaskExportProject(TaskBase):
                         f"Skipping export for GitLab project '{self.name_gitlab}'. "
                         f"Project name '{self.name_github}' already exists on GitHub.")
                     self.bar.set_msg_and_finish('SKIPPED')
+                    self.status.add(self.SKIPPED)
                     self.running = False
                     return
                 elif self.conflict_policy in ['overwrite']:
@@ -264,6 +275,7 @@ class TaskExportProject(TaskBase):
                     click.echo(f'Overwriting GitHub project {self.name_github}')
                     self.github.delete_repo(self.name_github, self.github.login)
                     self.bar.set_msg('GitHub project deleted')
+                    self.status.add(self.OVERWRITTEN)
 
             task_fetch_gitlab_project = TaskFetchGitlabProject(
                 gitlab=self.gitlab,
@@ -278,6 +290,7 @@ class TaskExportProject(TaskBase):
             self.bar.set_msg('Starting fetching GitLab project')
             git_cmd = task_fetch_gitlab_project.run()
             self.bar.set_msg('Fetching GitLab project done')
+            self.status.add(self.FETCHED)
 
             task_push_to_github = TaskPushToGitHub(
                 github=self.github,
@@ -293,14 +306,17 @@ class TaskExportProject(TaskBase):
             self.bar.set_msg('Starting pushing to GitHub')
             task_push_to_github.run()
             self.bar.set_msg_and_finish('DONE')
+            self.status.add(self.SUCCESS)
             self.running = False
         except (InterruptedError, KeyboardInterrupt):
             self.running = False
             self.bar.set_msg_and_finish('INTERRUPTED')
+            self.status.add(self.INTERRUPTED)
         except Exception as e:
             self.running = False
             self.exc.append(e)
             self.bar.set_msg_and_finish('RUN ERROR')
+            self.status.add(self.ERROR)
             if self.debug:
                 click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             if not self.suppress_exceptions:
@@ -311,8 +327,10 @@ class TaskExportProject(TaskBase):
             if not self.github_repo_existed and self.github.repo_exists(self.name_github, self.github.login):
                 self.github.delete_repo(self.name_github, self.github.login)
             self.bar.set_msg('ROLLBACKED')
+            self.status.add(self.ROLLBACKED)
         except Exception as e:
             self.bar.set_msg('ROLLBACK ERROR')
+            self.status.add(self.ROLLBACKED_ERROR)
             if self.debug:
                 click.secho(f'ERROR in {self.id}: {e}', fg='red', bold=True)
             raise

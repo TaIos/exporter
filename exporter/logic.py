@@ -239,6 +239,7 @@ class TaskExportProject(TaskBase):
     ERROR = 'ERROR'
     ROLLBACKED = 'ROLLBACKED'
     ROLLBACKED_ERROR = 'ROLLBACKED_ERROR'
+    DRY_RUN = 'DRY_RUN'
 
     def __init__(self, gitlab, github, name_gitlab, name_github, is_github_private,
                  base_dir, bar, conflict_policy, suppress_exceptions, debug):
@@ -421,7 +422,7 @@ class Exporter:
         self.logger = logger
         self.debug = debug
 
-    def run(self, projects, conflict_policy, tmp_dir, task_timeout, batch_size):
+    def run(self, projects, conflict_policy, tmp_dir, task_timeout, batch_size, dry_run):
         tasks_batched = []
         running_threads = []
         runned_tasks = []
@@ -442,7 +443,8 @@ class Exporter:
                 runned_tasks += tasks
                 self._execute_tasks(
                     tasks=tasks,
-                    threads=running_threads
+                    threads=running_threads,
+                    dry_run=dry_run
                 )
         except KeyboardInterrupt:
             self._handle_keyboard_interrupt(runned_tasks, running_threads, task_timeout)
@@ -497,7 +499,12 @@ class Exporter:
         return tasks
 
     @staticmethod
-    def _execute_tasks(tasks, threads):
+    def _execute_tasks(tasks, threads, dry_run):
+        if dry_run:
+            for task in tasks:
+                task.status.add(TaskExportProject.DRY_RUN)
+            return
+
         for task in tasks:
             t = Thread(target=task.run, args=())
             t.start()
@@ -572,6 +579,8 @@ class ExporterPrinter:
                 self._rollback()
             if TaskExportProject.ROLLBACKED_ERROR in t.status:
                 self._rollback_error()
+            if TaskExportProject.DRY_RUN in t.status:
+                self._dry_run()
             click.secho('', )
 
     def _dump_to_logfile(self, task):
@@ -610,3 +619,7 @@ class ExporterPrinter:
     @staticmethod
     def _interrupted():
         click.secho('INTERRUPTED ', fg='blue', nl=False)
+
+    @staticmethod
+    def _dry_run():
+        click.secho('DRY_RUN', fg='blue', nl=False)

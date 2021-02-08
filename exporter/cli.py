@@ -137,7 +137,10 @@ def validate_batch_size(ctx, param, value):
               help='Visibility of the exported project on GitHub')
 @click.option('--batch-size', default=10, show_default=True, callback=validate_batch_size,
               help='Maximum count of simultaneously running tasks.')
-def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique, visibility, batch_size):
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Do not perform any changes on GitLab and Github.')
+def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export_all, unique, visibility,
+         batch_size, dry_run):
     """Tool for exporting projects from FIT CTU GitLab to GitHub"""
     gitlab = GitLabClient(token=config.gitlab_token)
     github = GitHubClient(token=config.github_token)
@@ -161,5 +164,6 @@ def main(config, projects, debug, conflict_policy, tmp_dir, task_timeout, export
         conflict_policy=conflict_policy,
         tmp_dir=tmp_dir,
         task_timeout=task_timeout,
-        batch_size=batch_size
+        batch_size=batch_size,
+        dry_run=dry_run
     )

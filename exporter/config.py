@@ -24,37 +24,39 @@ class LineParser:
 
     @classmethod
     def parse(cls, line):
-        try:
-            s = line.split(' ')
-            if len(s) == 1:
-                return cls._parse_line_with_split_len_1(s)
-            elif len(s) == 2:
-                return cls._parse_line_with_split_len_2(s)
-            elif len(s) == 3:
-                return cls._parse_line_with_split_len_3(s)
-            elif len(s) == 4:
-                return cls._parse_line_with_split_len_4(s)
-            else:
-                raise ValueError(f"Line '{line}'")
-        except Exception as e:
-            print(e)
-            raise ValueError(f"Line '{line}'")
+        s = line.split(' ')
+        if len(s) == 1:
+            return cls._parse_line_with_split_len_1(s)
+        elif len(s) == 2:
+            return cls._parse_line_with_split_len_2(s)
+        elif len(s) == 3:
+            return cls._parse_line_with_split_len_3(s)
+        elif len(s) == 4:
+            return cls._parse_line_with_split_len_4(s)
+        else:
+            raise ValueError(f"Invalid number of entries on line '{line}'")
 
     @staticmethod
     def _parse_line_with_split_len_1(s):
         if len(s[0]):
             return [s[0], s[0]]
+        if len(s[0]) == 0:
+            raise ValueError(f"Empty line is not allowed.")
         raise ValueError()
 
     @staticmethod
     def _parse_line_with_split_len_2(s):
-        if s[0] and s[1] in ['public', 'private']:
+        if s[1] not in ['public', 'private']:
+            raise ValueError(f"Invalid visibility specifier '{s[1]}'")
+        if s[0]:
             return [s[0], s[0], s[1]]
         raise ValueError()
 
     @staticmethod
     def _parse_line_with_split_len_3(s):
-        if s[1] == '->' and len(s[0]) and len(s[2]):
+        if s[1] != '->':
+            raise ValueError(f"Invalid separator '{s[1]}'")
+        if len(s[0]) and len(s[2]):
             return [s[0], s[2]]
         raise ValueError()
 
@@ -64,7 +66,8 @@ class LineParser:
         c = s[3]
         if c in ['private', 'public']:
             return [a, b, c]
-        raise ValueError()
+        else:
+            raise ValueError(f"Invalid visibility specifier '{c}'")
 
 
 class ProjectLoader:
@@ -84,6 +87,8 @@ class ProjectLoader:
     @classmethod
     def load(cls, project_file):
         lines = [x.strip() for x in project_file.read().splitlines()]
+        if len(lines) == 0:
+            raise ValueError("File is empty.")
         return cls.load_parsed(lines)
 
 

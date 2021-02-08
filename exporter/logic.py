@@ -373,12 +373,14 @@ class TaskProgressBarPool(TaskBase):
     API documentation: https://python-enlighten.readthedocs.io/en/stable/api.html
     """
 
+    ID = 'PROGRESS_BAR'
+
     def __init__(self):
         super().__init__()
         self.pool = []
         self.manager = enlighten.get_manager()
         self.bar_format = '{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}d}/{total:d} [{unit}]'
-        self.id = 'Progress Bar'
+        self.id = TaskProgressBarPool.ID
 
     def register(self, name, total, initial_message):
         bar = self.manager.counter(
@@ -508,9 +510,7 @@ class Exporter:
         for task in tasks:
             try:
                 task.rollback()
-                click.echo(f"ROLLBACK: '{task.id}' successfull")
             except Exception as e:
-                click.secho(f'ROLLBACK: {task.id} error', fg='red', bold=True)
                 if debug:
                     click.secho(f'{e}', fg='red', bold=True)
 
@@ -539,41 +539,71 @@ class ExporterPrinter:
     def __init__(self, logger):
         self.logger = logger
 
-    @staticmethod
-    def _prefix_error():
-        click.secho('  => ', bold=True, nl=False)
-        click.secho('ERROR', fg='magenta', bold=True, nl=False)
-        click.echo(' - ', nl=False)
+    def print_project_name(self, name):
+        click.secho(f'{name}', bold=True)
 
-    @staticmethod
-    def _prefix_result():
-        click.secho('  => ', bold=True, nl=False)
+    def _prefix_result(self):
+        click.secho(' => ', bold=True, nl=False)
 
     def report(self, tasks, runned_tasks):
         runned_id = set(map(lambda x: x.id, runned_tasks))
         for t in tasks:
-            if t.id in runned_id:
-                if TaskExportProject.SUCCESS in t.status:
-                    click.secho(f'Export {t.id} SUCCESS')
-                elif TaskExportProject.SKIPPED in t.status:
-                    click.secho(f'Export {t.id} SKIPPED')
-            else:
-                click.secho(f'Export {t.id} NOT STARTED')
+            if t.id == TaskProgressBarPool.ID:
+                continue
 
-    def _success(self, task):
-        ...
+            self.print_project_name(t.id)
+            self._prefix_result()
 
-    def _skipped(self, task):
-        ...
-
-    def _rollbacked(self, task):
-        ...
-
-    def _error(self, task):
-        ...
-
-    def _not_runned(self, task):
-        ...
+            if t.id not in runned_id:
+                self._not_runned()
+            if TaskExportProject.SUCCESS in t.status:
+                self._success()
+            if TaskExportProject.OVERWRITTEN in t.status:
+                self._overwritten()
+            if TaskExportProject.ERROR in t.status:
+                self._run_error()
+            if TaskExportProject.INTERRUPTED in t.status:
+                self._interrupted()
+            if TaskExportProject.SKIPPED in t.status:
+                self._skipped()
+            if TaskExportProject.ROLLBACKED in t.status:
+                self._rollback()
+            if TaskExportProject.ROLLBACKED_ERROR in t.status:
+                self._rollback_error()
+            click.secho('', )
 
     def log(self, task, msg):
-        self.logger.info(f'{task.id}: {msg}')
+        exc_to_str = '-'.join(map(str, task.exc))
+        self.logger.info(f'{task.id} {msg} {exc_to_str}')
+
+    @staticmethod
+    def _success():
+        click.secho('EXPORTED ', fg='green', nl=False)
+
+    @staticmethod
+    def _skipped():
+        click.secho('SKIPPED ', fg='yellow', nl=False)
+
+    @staticmethod
+    def _rollback():
+        click.secho('SUCCESS_ROLLBACK ', fg='green', nl=False)
+
+    @staticmethod
+    def _rollback_error():
+        click.secho('ERROR_ROLLBACK ', fg='red', nl=False)
+
+    @staticmethod
+    def _run_error():
+        click.secho('RUN_ERROR ', fg='red', nl=False)
+
+    @staticmethod
+    def _not_runned():
+        click.secho('NOT_RUNNED ', fg='blue', nl=False)
+
+    @staticmethod
+    def _overwritten():
+        click.secho('OVERWRITTEN ', fg='blue', nl=False)
+
+    @staticmethod
+    def _interrupted():
+        click.secho('INTERRUPTED ', fg='blue', nl=False)

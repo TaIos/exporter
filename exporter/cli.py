@@ -130,7 +130,7 @@ def validate_batch_size(ctx, param, value):
                                    '[overwrite]: overwrite conflict repo with exported repo\n')
 @click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
 @click.option('--task-timeout', help='Floating point number specifying a timeout for the unresponding task.',
-              default=1.0, callback=validate_timeout)
+              default=3.0, callback=validate_timeout)
 @click.option('--unique', is_flag=True, default=False,
               help='Prevent name conflicts by appending random string at the end of exported project.')
 @click.option('--visibility', default='private', show_default=True, type=click.Choice(['public', 'private']),

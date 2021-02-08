@@ -548,6 +548,8 @@ class ExporterPrinter:
     def report(self, tasks, runned_tasks):
         runned_id = set(map(lambda x: x.id, runned_tasks))
         for t in tasks:
+            self._dump_to_logfile(t)
+
             if t.id == TaskProgressBarPool.ID:
                 continue
 
@@ -572,9 +574,10 @@ class ExporterPrinter:
                 self._rollback_error()
             click.secho('', )
 
-    def log(self, task, msg):
+    def _dump_to_logfile(self, task):
+        sta_to_str = ':'.join(map(str, task.status))
         exc_to_str = '-'.join(map(str, task.exc))
-        self.logger.info(f'{task.id} {msg} {exc_to_str}')
+        self.logger.info(f'{task.id} {sta_to_str} {exc_to_str}')
 
     @staticmethod
     def _success():

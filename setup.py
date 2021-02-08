@@ -21,7 +21,7 @@ setup(
         ],
     },
     install_requires=['GitPython>=3.1', 'click>=6', 'requests>=2.2', 'enlighten'],
-    extras_require={'test': ['pytest>=6.2']},
+    extras_require={'test': ['pytest>=6.2', 'flexmock']},
     zip_safe=False,
     python_requires='>=3.6',
     package_data={'exporter': []},

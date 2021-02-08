@@ -3,6 +3,21 @@ import flexmock
 
 from exporter.logic import TaskFetchGitlabProject, ProgressBarWrapper
 
+SEARCH_OWNED_PROJECTS = [
+    {
+        'owner': {'username': 'name'},
+        'http_url_to_repo': 'http://example.com/diaspora/diaspora-client.git'
+    }
+]
+
+
+@pytest.fixture()
+def gitlab():
+    return flexmock(
+        search_owned_projects=lambda: SEARCH_OWNED_PROJECTS,
+        token='XXX'
+    )
+
 
 @pytest.fixture()
 def bar():

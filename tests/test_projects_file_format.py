@@ -1,6 +1,6 @@
 import pytest
 
-from helper import config, run_ok, run, dummy, projects
+from helper import run_ok, run, dummy, projects
 
 
 @pytest.fixture
@@ -17,16 +17,13 @@ def dummy_config_file():
     'ok6.cfg',
     'ok7.cfg',
 ])
-def test_correct_projects_files(projects_file, dummy_config_file):
+def test_correct_project_files(projects_file, dummy_config_file):
     """"Application should accept this as input"""
-    cp = run(f'-p "{projects(projects_file)}" '
-             f'-c "{dummy(dummy_config_file)}" '
-             f'--dry-run')
-    assert cp.returncode != 0
-    assert not cp.stdout
-    assert (
-            "Error: Invalid value for '-p' / '--projects': Invalid visibility specifier" in cp.stderr
-    )
+    cp = run_ok(f'-p "{projects(projects_file)}" '
+                f'-c "{dummy(dummy_config_file)}" '
+                f'--dry-run')
+    assert cp.returncode == 0
+    assert not cp.stderr
 
 
 def test_unique_github_names(dummy_config_file):
@@ -51,7 +48,7 @@ def test_empty_file(dummy_config_file):
     assert cp.returncode != 0
     assert not cp.stdout
     assert (
-            "Error: Invalid value for '-p' / '--projects': Empty line is not allowed." in cp.stderr
+            "Error: Invalid value for '-p' / '--projects': File is empty." in cp.stderr
     )
 
 

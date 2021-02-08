@@ -12,12 +12,23 @@ class ConfigLoader:
 
     @classmethod
     def load(cls, cfg, config_file):
-        config_dir = pathlib.Path(config_file).resolve().parents[0]
-        config = ExporterConfig(
+
+        if not cfg.has_section('github') and not cfg.has_section('gitlab'):
+            raise ValueError("No section: 'github' and 'gitlab'")
+        if not cfg.has_section('github'):
+            raise ValueError("No section: 'github'")
+        if not cfg.has_section('gitlab'):
+            raise ValueError("No section: 'gitlab'")
+
+        if not cfg.get('gitlab', 'token', fallback=None):
+            raise ValueError("No 'token' in section 'gitlab'")
+        if not cfg.get('github', 'token', fallback=None):
+            raise ValueError("No 'token' in section 'github'")
+
+        return ExporterConfig(
             github_token=cfg.get('github', 'token'),
-            gitlab_token=cfg.get('gitlab', 'token'),
+            gitlab_token=cfg.get('gitlab', 'token')
         )
-        return config
 
 
 class LineParser:

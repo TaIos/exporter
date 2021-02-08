@@ -5,7 +5,7 @@ from helper import run_ok, run, dummy, projects
 
 @pytest.fixture
 def dummy_config_file():
-    return 'dummy_config.cfg'
+    return 'missing_github_token.cfg'
 
 
 @pytest.mark.parametrize('projects_file', [

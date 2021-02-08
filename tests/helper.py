@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 fixtures_dir = pathlib.Path(__file__).parent / 'fixtures'
-configs_dir = fixtures_dir / 'projects'
+configs_dir = fixtures_dir / 'config'
 projects_dir = fixtures_dir / 'projects'
 dummy_dir = fixtures_dir / 'dummy'
 

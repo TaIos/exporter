@@ -218,7 +218,7 @@ class TaskPushToGitHub(TaskBase):
             remote = self.git_cmd.create_remote(f'github_{self.name_github}', auth_https_url)
             self.raise_if_not_running()
             self.bar.set_msg('Pushing to GitHub')
-            if int(self.git_cmd.git.rev_list('--all', '--count')) > 1:  # no commits, git can't push
+            if int(self.git_cmd.git.rev_list('--all', '--count')) >= 1:  # no commits, git can't push
                 remote.push()
             self.bar.set_msg_and_update('Pushing to GitHub done')
             self.running = False

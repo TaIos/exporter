@@ -76,21 +76,24 @@ def test_error_during_cloning_gitlab_repo_raises_exception_and_sets_flags(instan
     assert str(instance.exc[0]) == 'ABC'
 
 
-def test_error_during_git_lfs_cloning():
-    ...
+def test_error_during_git_lfs_cloning(instance, monkeypatch):
+    """Test flags and state after errors raised by fetching additional files using git LFS"""
 
+    def raise_(*args):
+        raise Exception('ABC')
 
-def test_append_caught_exception():
-    ...
+    def fake_repo(*args):
+        return flexmock(
+            working_dir='directory'
+        )
 
+    with pytest.raises(Exception, match='ABC'):
+        monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: SEARCH_OWNED_PROJECTS_RESPONSE)
+        monkeypatch.setattr(git.Repo, 'clone_from', fake_repo)
+        monkeypatch.setattr(git.cmd.Git, 'execute', raise_)
+        instance.suppress_exceptions = False
+        instance.run()
 
-def test_printing_error_in_debug_mode():
-    ...
-
-
-def test_rethrowing_exception():
-    ...
-
-
-def test_interrupt():
-    ...
+    assert not instance.running
+    assert len(instance.exc) == 1
+    assert str(instance.exc[0]) == 'ABC'

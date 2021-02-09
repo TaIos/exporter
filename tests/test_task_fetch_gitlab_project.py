@@ -1,9 +1,10 @@
 import pytest
 import flexmock
 
+from exporter.exeptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
 from exporter.logic import TaskFetchGitlabProject, ProgressBarWrapper
 
-SEARCH_OWNED_PROJECTS = [
+SEARCH_OWNED_PROJECTS_RESPONSE = [
     {
         'owner': {'username': 'name'},
         'http_url_to_repo': 'http://example.com/diaspora/diaspora-client.git'
@@ -32,9 +33,9 @@ def bar():
 
 
 @pytest.fixture()
-def instance(bar, tmp_path):
+def instance(gitlab, bar, tmp_path):
     return TaskFetchGitlabProject(
-        gitlab=None,
+        gitlab=gitlab,
         name_gitlab='TEST',
         base_dir=tmp_path,
         bar=bar,
@@ -43,12 +44,18 @@ def instance(bar, tmp_path):
     )
 
 
-def test_multiple_gitlab_projects_exist(instance):
-    ...
+def test_multiple_gitlab_projects_exist_raises_exception(instance, monkeypatch):
+    """Can't choose between multiple GitLab projects matching given name"""
+    with pytest.raises(MultipleGitLabProjectsExistException, match=r'Multiple projects found for *'):
+        monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: [1, 2])
+        instance.run()
 
 
-def test_no_gitlab_project_exist():
-    ...
+def test_no_gitlab_project_exist_raises_exception(instance, monkeypatch):
+    """Can't export non-existing GitLab project"""
+    with pytest.raises(NoGitLabProjectsExistException, match=r'No project found for *'):
+        monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: [])
+        instance.run()
 
 
 def test_error_during_cloning_gitlab_repo():

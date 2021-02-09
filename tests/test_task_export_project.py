@@ -80,21 +80,48 @@ def test_if_overwrite_happens_when_repo_exists_and_policy_is_overwrite(instance,
     assert len(instance.exc) == 0
 
 
-def test_if_rollback_deletes_repo_if_it_did_not_existed_before():
+def test_if_rollback_deletes_repo_if_it_did_not_existed_before(instance, monkeypatch):
     """Rollback should undone everything, including deleting created GitHub repository if it did not existed before"""
-    ...
+    instance.github_repo_existed = False
+    monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
+    monkeypatch.setattr(instance.github, 'delete_repo', lambda x, y: None)
+    flexmock(instance.github).should_receive('delete_repo').once()
+    instance.rollback()
+    assert TaskExportProject.ROLLBACKED in instance.status
 
 
-def test_if_rollback_doesnt_delete_repo_if_it_existed_before():
+def test_if_rollback_doesnt_delete_repo_if_it_existed_before(instance, monkeypatch):
     """Rollback should undone everything, but not delete created GitHub repository if it did existed before"""
-    ...
+
+    def raise_(*args, **kwargs):
+        raise Exception('ABC')
+
+    instance.github_repo_existed = True
+    monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: False)
+    monkeypatch.setattr(instance.github, 'delete_repo', lambda x, y: raise_)
+    instance.rollback()
+    assert TaskExportProject.ROLLBACKED in instance.status
 
 
-def test_rollback_error_is_detected():
+def test_rollback_error_is_detected(instance, monkeypatch):
     """"Every error during rollback should be detected and reported"""
-    ...
+
+    def raise_(*args, **kwargs):
+        raise Exception('ABC')
+
+    instance.github_repo_existed = False
+    monkeypatch.setattr(instance.github, 'repo_exists', raise_)
+    with pytest.raises(Exception, match='ABC'):
+        instance.rollback()
+
+    assert TaskExportProject.ROLLBACKED_ERROR in instance.status
 
 
-def test_subtasks_are_added_to_subtask_list():
-    """Successfull export always consists of two tasks"""
-    ...
+def test_subtasks_are_added_to_subtask_list(instance, monkeypatch):
+    """Successful export always consists of two tasks"""
+    flexmock(TaskFetchGitlabProject, run=lambda: None)
+    flexmock(TaskPushToGitHub, run=lambda: None)
+    monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: False)
+    instance.run()
+    assert len(instance.subtasks) == 2
+    assert TaskExportProject.SUCCESS in instance.status

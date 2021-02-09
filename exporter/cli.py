@@ -22,7 +22,7 @@ def load_config_file(ctx, param, value):
     try:
         cfg = configparser.ConfigParser()
         cfg.read_file(value)
-        return ConfigLoader.load(cfg, value.name)
+        return ConfigLoader.load(cfg)
     except Exception as e:
         raise click.BadParameter(e)
 

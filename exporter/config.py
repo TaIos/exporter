@@ -11,7 +11,7 @@ class ExporterConfig:
 class ConfigLoader:
 
     @classmethod
-    def load(cls, cfg, config_file):
+    def load(cls, cfg):
 
         if not cfg.has_section('github') and not cfg.has_section('gitlab'):
             raise ValueError("No section: 'github' and 'gitlab'")

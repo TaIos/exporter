@@ -1,3 +1,4 @@
+import git
 import pytest
 import flexmock
 
@@ -58,8 +59,21 @@ def test_no_gitlab_project_exist_raises_exception(instance, monkeypatch):
         instance.run()
 
 
-def test_error_during_cloning_gitlab_repo():
-    ...
+def test_error_during_cloning_gitlab_repo_raises_exception_and_sets_flags(instance, monkeypatch):
+    """Test flags and state after errors raised by cloning GitLab project"""
+
+    def raise_(*args):
+        raise Exception('ABC')
+
+    with pytest.raises(Exception, match='ABC'):
+        monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: SEARCH_OWNED_PROJECTS_RESPONSE)
+        monkeypatch.setattr(git.Repo, 'clone_from', raise_)
+        instance.suppress_exceptions = False
+        instance.run()
+
+    assert not instance.running
+    assert len(instance.exc) == 1
+    assert str(instance.exc[0]) == 'ABC'
 
 
 def test_error_during_git_lfs_cloning():

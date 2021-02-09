@@ -8,6 +8,8 @@ import enlighten
 
 from threading import Thread
 from abc import ABC
+
+from .exeptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
 from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
 
 
@@ -162,10 +164,10 @@ class TaskFetchGitlabProject(TaskBase):
             self.bar.set_msg('Searching for project')
             r = self.gitlab.search_owned_projects(self.name_gitlab)
             self.bar.set_msg_and_update('Searching for project done')
+            if len(r) > 1:
+                raise MultipleGitLabProjectsExistException(f'Multiple projects found for {self.name_gitlab}')
             if len(r) == 0:
-                raise ValueError(f'Multiple projects found for {self.name_gitlab}')
-            if len(r[0]) == 0:
-                raise ValueError(f'No project found for {self.name_gitlab}')
+                raise NoGitLabProjectsExistException(f'No project found for {self.name_gitlab}')
             json = r[0]
 
             username = json['owner']['username']
@@ -240,6 +242,8 @@ class TaskExportProject(TaskBase):
     ROLLBACKED = 'ROLLBACKED'
     ROLLBACKED_ERROR = 'ROLLBACKED_ERROR'
     DRY_RUN = 'DRY_RUN'
+    MULTIPLE_GITLAB_PROJECTS = 'MULTIPLE_GITLAB_PROJECTS'
+    NO_GITLAB_PROJECT = 'NO_GITLAB_PROJECT'
 
     def __init__(self, gitlab, github, name_gitlab, name_github, is_github_private,
                  base_dir, bar, conflict_policy, suppress_exceptions, debug):
@@ -309,6 +313,14 @@ class TaskExportProject(TaskBase):
             self.running = False
             self.bar.set_msg_and_finish('INTERRUPTED')
             self.status.add(self.INTERRUPTED)
+        except NoGitLabProjectsExistException as e:
+            self.running = False
+            self.bar.set_msg_and_finish('NO GITLAB PROJECT')
+            self.status.add(self.NO_GITLAB_PROJECT)
+        except MultipleGitLabProjectsExistException as e:
+            self.running = False
+            self.bar.set_msg_and_finish('MULTIPLE GITLAB PROJECTS')
+            self.status.add(self.MULTIPLE_GITLAB_PROJECTS)
         except Exception as e:
             self.running = False
             self.exc.append(e)
@@ -581,6 +593,10 @@ class ExporterPrinter:
                 self._rollback_error()
             if TaskExportProject.DRY_RUN in t.status:
                 self._dry_run()
+            if TaskExportProject.NO_GITLAB_PROJECT in t.status:
+                self._no_gitlab_project()
+            if TaskExportProject.MULTIPLE_GITLAB_PROJECTS in t.status:
+                self._multiple_gitlab_projects()
             click.secho('', )
 
     def _dump_to_logfile(self, task):
@@ -623,3 +639,11 @@ class ExporterPrinter:
     @staticmethod
     def _dry_run():
         click.secho('DRY_RUN', fg='blue', nl=False)
+
+    @staticmethod
+    def _no_gitlab_project():
+        click.secho('NO_GITLAB_PROJECT ', fg='red', nl=False)
+
+    @staticmethod
+    def _multiple_gitlab_projects():
+        click.secho('MULTIPLE_GITLAB_PROJECTS ', fg='red', nl=False)

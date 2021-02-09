@@ -1,7 +1,7 @@
 import pytest
 from flexmock import flexmock
 
-from exporter.logic import ProgressBarWrapper, TaskExportProject
+from exporter.logic import ProgressBarWrapper, TaskExportProject, TaskFetchGitlabProject, TaskPushToGitHub
 
 
 def blank_fn(*args, **kwargs):
@@ -30,7 +30,8 @@ def bar():
         refresh=lambda: None,
         close=lambda: None,
         unit=None,
-        count=None
+        count=None,
+        total=None
     )
     return ProgressBarWrapper(bar=fake_bar, initial_message='TEST')
 
@@ -51,14 +52,32 @@ def instance(github, gitlab, bar, tmp_path):
     )
 
 
-def test_if_run_is_skipped_when_repo_exists_and_policy_is_skip():
+def test_if_run_is_skipped_when_repo_exists_and_policy_is_skip(instance, monkeypatch):
     """When conflict policy is set to 'skip' and GitHub project already exists, run should skipped"""
-    ...
+    instance.conflict_policy = 'skip'
+    monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
+    instance.run()
+    assert not instance.running
+    assert len(instance.subtasks) == 0
+    assert TaskExportProject.SKIPPED in instance.status
+    assert TaskExportProject.SUCCESS not in instance.status
+    assert len(instance.exc) == 0
 
 
-def test_if_overwrite_happens_when_repo_exists_and_policy_is_overwrite():
+def test_if_overwrite_happens_when_repo_exists_and_policy_is_overwrite(instance, monkeypatch):
     """When conflict policy is set to 'overwrite' and GitHub project already exists, it should be overwritten"""
-    ...
+    instance.conflict_policy = 'overwrite'
+    monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
+    monkeypatch.setattr(instance.github, 'delete_repo', lambda x, y: None)
+    flexmock(instance.github).should_receive("delete_repo").once()
+    flexmock(TaskFetchGitlabProject, run=lambda: None)
+    flexmock(TaskPushToGitHub, run=lambda: None)
+    instance.run()
+    assert not instance.running
+    assert len(instance.subtasks) == 2
+    assert TaskExportProject.OVERWRITTEN in instance.status
+    assert TaskExportProject.SUCCESS in instance.status
+    assert len(instance.exc) == 0
 
 
 def test_if_rollback_deletes_repo_if_it_did_not_existed_before():

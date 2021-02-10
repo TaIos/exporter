@@ -5,7 +5,7 @@ with open('README.rst') as f:
 
 setup(
     name='fit-ctu-gitlab-exporter',
-    version='0.0.2',
+    version='1.0.0',
     description='Tool for exporting projects from FIT CTU GitLab to GitHub',
     long_description=long_description,
     long_description_content_type='text/x-rst',
@@ -26,7 +26,7 @@ setup(
     python_requires='>=3.6',
     package_data={'exporter': []},
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Environment :: Console',

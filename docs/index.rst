@@ -14,6 +14,7 @@ Check Quickstart :doc:`HERE </quickstart>` for examples.
    quickstart
    projects_file_format
    config_file_format
+   return_codes
    testing
    modules
 

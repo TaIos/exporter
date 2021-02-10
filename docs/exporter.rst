@@ -20,14 +20,6 @@ exporter.config module
    :undoc-members:
    :show-inheritance:
 
-exporter.git module
--------------------
-
-.. automodule:: exporter.git
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 exporter.helpers module
 -----------------------
 

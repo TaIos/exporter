@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'exporter'
-copyright = '2020, Martin Šafránek'
+copyright = '2021, Martin Šafránek'
 author = 'Martin Šafránek'
 
 # The full version, including alpha/beta/rc tags

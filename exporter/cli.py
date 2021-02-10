@@ -116,26 +116,27 @@ def validate_batch_size(ctx, param, value):
 
 
 @click.command(name='exporter')
-@click.version_option(version='0.0.2')
+@click.version_option(version='1.0.0')
 @click.option('-c', '--config', type=click.File(mode='r'), callback=load_config_file,
-              help='Exporter configuration file.', required=True)
-@click.option('--export-all', is_flag=True, default=False, help='Export all GitLab projects.')
+              help='File containing GitHub and GitLab tokens.', required=True)
+@click.option('--export-all', is_flag=True, default=False,
+              help='Export all GitLab projects associated with given token.')
 @click.option('-p', '--projects', type=click.File(mode='r', lazy=True), callback=load_projects_file,
               cls=Mutex, help='Project names to export. See Documentation for format.', not_required_if=['export-all'])
 @click.option('--purge-gh', default=False, show_default=False, is_flag=True,
               is_eager=True, expose_value=False, callback=delete_all_github_repos,
               help='Prompt for GitHub token with admin access, delete all repos and exit. Dangerous!')
 @click.option('--debug', default=False, is_flag=True,
-              help='Enable debug logs.')
+              help='Run application in debug mode. Application is unstable in this mode.')
 @click.option('--conflict-policy', type=click.Choice(['skip', 'overwrite']),
-              default='skip', help='If GitHub already contains repo with the same name as exported repo\n'
-                                   '[skip]: do not export conflict repo and continue to the next one\n'
-                                   '[overwrite]: overwrite conflict repo with exported repo\n')
-@click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store exporting data.', default='tmp')
-@click.option('--task-timeout', help='Floating point number specifying a timeout for the unresponding task.',
-              default=30.0, callback=validate_timeout)
+              default='skip', help='[skip] skip export for project names which already exists on GitHib.'
+                                   '[overwrite] overwrite any GitHub project which already exists.')
+@click.option('--tmp-dir', type=click.Path(), help='Temporary directory to store data during export.',
+              default='tmp', show_default=True)
+@click.option('--task-timeout', help='Timeout for unresponding export task.',
+              default=30.0, callback=validate_timeout, show_default=True)
 @click.option('--unique', is_flag=True, default=False,
-              help='Prevent name conflicts by appending random string at the end of exported project.')
+              help='Prevent GitHub name conflicts by appending random string at the end of exported project name.')
 @click.option('--visibility', default='private', show_default=True, type=click.Choice(['public', 'private']),
               help='Visibility of the exported project on GitHub')
 @click.option('--batch-size', default=10, show_default=True, callback=validate_batch_size,

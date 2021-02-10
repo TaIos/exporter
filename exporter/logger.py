@@ -4,6 +4,7 @@ import time
 
 
 class ExporterLogger:
+    """Logging wrapper for saving logs and specifying log format"""
 
     def __init__(self, debug=True, log_dir=None, log_file=None):
         self.log_dir = pathlib.Path(log_dir or 'logs')

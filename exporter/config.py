@@ -12,6 +12,12 @@ class ConfigLoader:
 
     @classmethod
     def load(cls, cfg):
+        """
+        Load and validate application configuration for GitHub and GitLab access
+
+        :param cfg: :class:`ConfigParser` object containing GitHub and GitLab tokens
+        :return: :class:`ExporterConfig` containing GitHub and Gitlab tokens
+        """
 
         if not cfg.has_section('github') and not cfg.has_section('gitlab'):
             raise ValueError("No section: 'github' and 'gitlab'")
@@ -35,6 +41,13 @@ class LineParser:
 
     @classmethod
     def parse(cls, line):
+        """
+        Parse and validate splitted lines. Each line contains specification for each exported project,
+        eg ``A -> B private``
+
+        :param line: splitted line containing specification for exported project
+        :return: parsed line
+        """
         s = line.split(' ')
         if len(s) == 1:
             return cls._parse_line_with_split_len_1(s)
@@ -91,12 +104,24 @@ class ProjectLoader:
 
     @classmethod
     def load_parsed(cls, lines):
+        """
+        Load and validate application projects configuration file
+
+        :param lines: lines of projects configuration file
+        :return: parsed and validated lines of projects configuration
+        """
         lines_parsed = list(map(LineParser.parse, lines))
         cls._check_unique_values(lines_parsed)
         return lines_parsed
 
     @classmethod
     def load(cls, project_file):
+        """
+        Load and validate application projects configuration file
+
+        :param project_file: text input with projects file
+        :return: same as :func:`load_parsed`
+        """
         lines = [x.strip() for x in project_file.read().splitlines()]
         if len(lines) == 0:
             raise ValueError("File is empty.")
@@ -106,6 +131,14 @@ class ProjectLoader:
 class ProjectNormalizer:
     @classmethod
     def normalize(cls, projects, visibility):
+        """
+        Add default project visibility to parsed projects file if it is not already present.
+        Eg add ``private`` or ``public``.
+
+        :param projects: parsed projects file
+        :param visibility: default visibility
+        :return: normalized parsed project file, where each projects contains visibility
+        """
         for i, p in enumerate(projects):
             if len(p) == 1:
                 projects[i] = [p[0], p[0], visibility]

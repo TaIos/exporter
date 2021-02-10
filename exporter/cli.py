@@ -73,6 +73,7 @@ def validate_timeout(ctx, param, value):
 
 
 def make_unique_projects(projects, random_suffix_length):
+    """Add random suffix to given project names"""
     for p in projects:
         p[1] = p[1] + '_' + rndstr(random_suffix_length)
 
@@ -84,8 +85,10 @@ def normalize_projects(projects, visibility):
         raise click.BadParameter(e)
 
 
-# credit: Stephen Rauch, https://stackoverflow.com/a/51235564/6784881
 class Mutex(click.Option):
+    """Used for creating mutual exclusive options inside click.
+    Credit `Stephen Rauch <https://stackoverflow.com/a/51235564/6784881>`_"""
+
     def __init__(self, *args, **kwargs):
         self.not_required_if = kwargs.pop("not_required_if")
 

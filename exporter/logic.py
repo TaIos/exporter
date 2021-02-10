@@ -3,7 +3,7 @@ import requests
 import re
 import shutil
 import uuid
-import git  # API reference: https://gitpython.readthedocs.io/en/stable/reference.html
+import git  # documentation: https://gitpython.readthedocs.io/en/stable/reference.html
 import enlighten
 
 from threading import Thread
@@ -15,10 +15,10 @@ from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
 
 class GitHubClient:
     """
-    This class can communicate with the GitHub API
-    just give it a token and go.
+    This class can communicate with the GitHub API.
+    Just give it a token and go.
 
-    API documentation: https://docs.github.com/en/free-pro-team@latest/rest/reference
+    Github API `documentation <https://docs.github.com/en/free-pro-team@latest/rest/reference>`_
     """
     API = 'https://api.github.com'
 
@@ -30,6 +30,7 @@ class GitHubClient:
         self._login = None
 
     def clone(self):
+        """Create deep copy"""
         return GitHubClient(self.token)
 
     @property
@@ -81,10 +82,10 @@ class GitHubClient:
 
 class GitLabClient:
     """
-    This class can communicate with the GitLab API
+    This class can communicate with the GitLab API.
     just give it a token and go.
 
-    API documentation: https://gitlab.fit.cvut.cz/help/api/README.md
+    GitLab API `documentation <https://gitlab.fit.cvut.cz/help/api/README.md>`_
     """
     API = 'https://gitlab.fit.cvut.cz/api/v4'
 
@@ -120,6 +121,9 @@ class GitLabClient:
 
 
 class TaskBase(ABC):
+    """
+    Abstract class representing runnable task inside Exporter application.
+    """
 
     def __init__(self):
         self.id = str(uuid.uuid4())  # make a random UUID
@@ -130,23 +134,28 @@ class TaskBase(ABC):
         self.status = set()
 
     def run(self):
+        """Start task"""
         pass
 
     def stop(self):
+        """Stop task"""
         self.running = False
         for task in self.subtasks:
             task.stop()
 
     def raise_if_not_running(self):
+        """Raise exception if task is not running"""
         if not self.running:
             raise InterruptedError(self.id)
 
     def rollback(self):
+        """Undo everything that this task has done"""
         for task in self.subtasks:
             task.rollback()
 
 
 class TaskFetchGitlabProject(TaskBase):
+    """Task that fetches specified GitLab project"""
 
     def __init__(self, gitlab, name_gitlab, base_dir, bar, suppress_exceptions, debug):
         super().__init__()
@@ -159,6 +168,11 @@ class TaskFetchGitlabProject(TaskBase):
         self.debug = debug
 
     def run(self):
+        """
+        Fetch specified GitLab project
+
+        :return: :class:`git.Repo` instance pointing to the cloned project
+        """
         try:
             self.running = True
             self.bar.set_msg('Searching for project')
@@ -193,6 +207,7 @@ class TaskFetchGitlabProject(TaskBase):
 
 
 class TaskPushToGitHub(TaskBase):
+    """Task that pushes specified fetched GitLab project to GitHub"""
 
     def __init__(self, github, git_cmd, name_github, is_private, bar, suppress_exceptions, debug):
         super().__init__()
@@ -206,6 +221,11 @@ class TaskPushToGitHub(TaskBase):
         self.debug = debug
 
     def run(self):
+        """
+        Push specified fetched GitLab project to GitHub
+
+        :return: None
+        """
         try:
             self.running = True
             self.bar.set_msg('Creating GitHub repo')
@@ -232,7 +252,11 @@ class TaskPushToGitHub(TaskBase):
 
 
 class TaskExportProject(TaskBase):
-    # status constants
+    """
+    Task that exports specifies GitLab project to GitHub
+    """
+
+    """Status constants indicating encountered events during :func:`run` and :func:`rollback`"""
     SKIPPED = 'SKIPPED'
     OVERWRITTEN = 'OVERWRITTEN'
     FETCHED = 'FETCHED'
@@ -263,6 +287,11 @@ class TaskExportProject(TaskBase):
         self.status = set()
 
     def run(self):
+        """
+        Export specified GitLab project to GitHub
+
+        :return: None
+        """
         try:
             self.running = True
             self.github_repo_existed = self.github.repo_exists(self.name_github, self.github.login)
@@ -332,6 +361,8 @@ class TaskExportProject(TaskBase):
                 raise
 
     def rollback(self):
+        """Undo everything that export process has done. This includes deleting GitHub repository
+        if it did not existed before export and has been created in :func:`run` method"""
         try:
             if not self.github_repo_existed and self.github.repo_exists(self.name_github, self.github.login):
                 self.github.delete_repo(self.name_github, self.github.login)
@@ -346,6 +377,7 @@ class TaskExportProject(TaskBase):
 
 
 class ProgressBarWrapper:
+    """Progress bar wrapper API that informs user about export progress"""
 
     def __init__(self, bar, initial_message):
         self.bar = bar
@@ -383,7 +415,7 @@ class ProgressBarWrapper:
 
 class TaskProgressBarPool(TaskBase):
     """
-    API documentation: https://python-enlighten.readthedocs.io/en/stable/api.html
+    Used bar implementation `documentation <https://python-enlighten.readthedocs.io/en/stable/api.html>`_
     """
 
     ID = 'PROGRESS_BAR'
@@ -396,6 +428,14 @@ class TaskProgressBarPool(TaskBase):
         self.id = TaskProgressBarPool.ID
 
     def register(self, name, total, initial_message):
+        """
+        Create new progress bar, add it to pool and return its API
+
+        :param name: string to display as the name of the progress bar
+        :param total: total ticks of the progress bar (eg 100)
+        :param initial_message: string to display as the current state of the progress bar
+        :return: :class:`ProgressBarWrapper` as the progress bar API
+        """
         bar = self.manager.counter(
             total=total,
             desc=name,
@@ -411,10 +451,15 @@ class TaskProgressBarPool(TaskBase):
         return bar_wrapper
 
     def refresh(self):
+        """Redraw all progress bars in pool"""
         for bar in self.pool:
             bar.refresh()
 
     def run(self):
+        """
+        Start redrawing all progress bars inside pool until :attr:`running` flag is true or any progress
+        bar is not finished
+        """
         self.running = True
         while not all([x.is_finished() for x in self.pool]) and self.running:
             self.refresh()
@@ -435,6 +480,10 @@ class Exporter:
         self.debug = debug
 
     def run(self, projects, conflict_policy, tmp_dir, task_timeout, batch_size, dry_run):
+        """
+        Start export of specified projects from GitLab to GitHub.
+        Run at most :attr:`batch_size` project exports in parallel.
+        """
         tasks_batched = []
         running_threads = []
         runned_tasks = []

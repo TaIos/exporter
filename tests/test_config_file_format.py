@@ -14,6 +14,7 @@ def dummy_project_file():
 ])
 def test_correct_config_file(config_file, dummy_project_file):
     """"Application should accept this as input"""
+
     cp = run_ok(f'-p "{dummy(dummy_project_file)}" '
                 f'-c "{config(config_file)}" '
                 f'--dry-run')
@@ -23,6 +24,7 @@ def test_correct_config_file(config_file, dummy_project_file):
 
 def test_missing_github_section(dummy_project_file):
     """"Config file must contain github section"""
+
     config_file = 'missing_github_section.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
              f'-c "{config(config_file)}" '
@@ -36,6 +38,7 @@ def test_missing_github_section(dummy_project_file):
 
 def test_missing_gitlab_section(dummy_project_file):
     """"Config file must contain gitlab section"""
+
     config_file = 'missing_gitlab_section.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
              f'-c "{config(config_file)}" '
@@ -49,6 +52,7 @@ def test_missing_gitlab_section(dummy_project_file):
 
 def test_missing_github_and_gitlab_section(dummy_project_file):
     """"Config file must contain both github and gitlab this section"""
+
     config_file = 'missing_github_and_gitlab_section.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
              f'-c "{config(config_file)}" '
@@ -61,6 +65,7 @@ def test_missing_github_and_gitlab_section(dummy_project_file):
 
 
 def test_missing_github_token(dummy_project_file):
+
     """"Config file must contain github token"""
     config_file = 'missing_github_token.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
@@ -75,6 +80,7 @@ def test_missing_github_token(dummy_project_file):
 
 def test_missing_gitlab_token(dummy_project_file):
     """"Config file must contain gitlab token"""
+
     config_file = 'missing_gitlab_token.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
              f'-c "{config(config_file)}" '
@@ -88,6 +94,7 @@ def test_missing_gitlab_token(dummy_project_file):
 
 def test_empty_config_file(dummy_project_file):
     """"Empty config is invalid"""
+
     config_file = 'empty_config.cfg'
     cp = run(f'-p "{dummy(dummy_project_file)}" '
              f'-c "{config(config_file)}" '

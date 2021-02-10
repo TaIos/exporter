@@ -54,6 +54,7 @@ def instance(github, gitlab, bar, tmp_path):
 
 def test_if_run_is_skipped_when_repo_exists_and_policy_is_skip(instance, monkeypatch):
     """When conflict policy is set to 'skip' and GitHub project already exists, run should skipped"""
+
     instance.conflict_policy = 'skip'
     monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
     instance.run()
@@ -66,6 +67,7 @@ def test_if_run_is_skipped_when_repo_exists_and_policy_is_skip(instance, monkeyp
 
 def test_if_overwrite_happens_when_repo_exists_and_policy_is_overwrite(instance, monkeypatch):
     """When conflict policy is set to 'overwrite' and GitHub project already exists, it should be overwritten"""
+
     instance.conflict_policy = 'overwrite'
     monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
     monkeypatch.setattr(instance.github, 'delete_repo', lambda x, y: None)
@@ -82,6 +84,7 @@ def test_if_overwrite_happens_when_repo_exists_and_policy_is_overwrite(instance,
 
 def test_if_rollback_deletes_repo_if_it_did_not_existed_before(instance, monkeypatch):
     """Rollback should undone everything, including deleting created GitHub repository if it did not existed before"""
+
     instance.github_repo_existed = False
     monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: True)
     monkeypatch.setattr(instance.github, 'delete_repo', lambda x, y: None)
@@ -119,6 +122,7 @@ def test_rollback_error_is_detected(instance, monkeypatch):
 
 def test_subtasks_are_added_to_subtask_list(instance, monkeypatch):
     """Successful export always consists of two tasks"""
+
     flexmock(TaskFetchGitlabProject, run=lambda: None)
     flexmock(TaskPushToGitHub, run=lambda: None)
     monkeypatch.setattr(instance.github, 'repo_exists', lambda x, y: False)

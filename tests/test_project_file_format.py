@@ -19,6 +19,7 @@ def dummy_config_file():
 ])
 def test_correct_project_files(projects_file, dummy_config_file):
     """"Application should accept this as input"""
+
     cp = run_ok(f'-p "{projects(projects_file)}" '
                 f'-c "{dummy(dummy_config_file)}" '
                 f'--dry-run')
@@ -28,6 +29,7 @@ def test_correct_project_files(projects_file, dummy_config_file):
 
 def test_unique_github_names(dummy_config_file):
     """"Exporting two GitLab projects to one GitHub project doesn't make sense"""
+
     file = 'incorrect_ambiguous_github.cfg'
     cp = run(f'-p "{projects(file)}" '
              f'-c "{dummy(dummy_config_file)}" '
@@ -41,6 +43,7 @@ def test_unique_github_names(dummy_config_file):
 
 def test_empty_file(dummy_config_file):
     """"Empty file is not allowed"""
+
     file = 'incorrect_empty.cfg'
     cp = run(f'-p "{projects(file)}" '
              f'-c "{dummy(dummy_config_file)}" '
@@ -54,6 +57,7 @@ def test_empty_file(dummy_config_file):
 
 def test_empty_line(dummy_config_file):
     """"Empty line is not allowed"""
+
     file = 'incorrect_empty_lines.cfg'
     cp = run(f'-p "{projects(file)}" '
              f'-c "{dummy(dummy_config_file)}" '
@@ -66,7 +70,8 @@ def test_empty_line(dummy_config_file):
 
 
 def test_number_of_words_on_line(dummy_config_file):
-    """"Number of extries separated by separator may not exceed certain limit"""
+    """"Number of entries separated by separator may not exceed certain limit"""
+
     file = 'incorrect_number_of_words.cfg'
     cp = run(f'-p "{projects(file)}" '
              f'-c "{dummy(dummy_config_file)}" '
@@ -80,6 +85,7 @@ def test_number_of_words_on_line(dummy_config_file):
 
 def test_random_input(dummy_config_file):
     """"Random input should not be accepted"""
+
     file = 'incorrect_random.cfg'
     cp = run(f'-p "{projects(file)}" '
              f'-c "{dummy(dummy_config_file)}" '
@@ -97,6 +103,7 @@ def test_random_input(dummy_config_file):
 ])
 def test_incorrect_repo_separator(projects_file, dummy_config_file):
     """"For renaming during export, special separator has to be used no matter the visibility."""
+
     cp = run(f'-p "{projects(projects_file)}" '
              f'-c "{dummy(dummy_config_file)}" '
              f'--dry-run')
@@ -113,6 +120,7 @@ def test_incorrect_repo_separator(projects_file, dummy_config_file):
 ])
 def test_incorrect_repo_separator(projects_file, dummy_config_file):
     """"Visibility specifier can only be from predefined discrete values"""
+
     cp = run(f'-p "{projects(projects_file)}" '
              f'-c "{dummy(dummy_config_file)}" '
              f'--dry-run')

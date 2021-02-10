@@ -61,6 +61,7 @@ def test_error_during_creating_github_repo(instance, monkeypatch):
 
 def test_push_happens_when_fetched_repo_has_commits(instance, monkeypatch):
     """Test if push is called when repository is correctly fetched and contains at least one commit"""
+
     fake_remote = flexmock(push=lambda: None)
     monkeypatch.setattr(instance.git_cmd, 'create_remote', fake_remote)
     monkeypatch.setattr(instance.git_cmd.git, 'rev_list', lambda x, y: 1)

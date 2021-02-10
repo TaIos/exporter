@@ -47,6 +47,7 @@ def instance(gitlab, bar, tmp_path):
 
 def test_multiple_gitlab_projects_exist_raises_exception(instance, monkeypatch):
     """Can't choose between multiple GitLab projects matching given name"""
+
     with pytest.raises(MultipleGitLabProjectsExistException, match=r'Multiple projects found for *'):
         monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: [1, 2])
         instance.run()
@@ -54,6 +55,7 @@ def test_multiple_gitlab_projects_exist_raises_exception(instance, monkeypatch):
 
 def test_no_gitlab_project_exist_raises_exception(instance, monkeypatch):
     """Can't export non-existing GitLab project"""
+
     with pytest.raises(NoGitLabProjectsExistException, match=r'No project found for *'):
         monkeypatch.setattr(instance.gitlab, 'search_owned_projects', lambda x: [])
         instance.run()

@@ -18,7 +18,7 @@ class GitHubClient:
     This class can communicate with the GitHub API.
     Just give it a token and go.
 
-    Github API `documentation <https://docs.github.com/en/free-pro-team@latest/rest/reference>`_
+    Github API `documentation <https://docs.github.com/en/free-pro-team@latest/rest/reference>`__
     """
     API = 'https://api.github.com'
 
@@ -415,7 +415,7 @@ class ProgressBarWrapper:
 
 class TaskProgressBarPool(TaskBase):
     """
-    Used bar implementation `documentation <https://python-enlighten.readthedocs.io/en/stable/api.html>`_
+    Used bar implementation `documentation <https://python-enlighten.readthedocs.io/en/stable/api.html>`__
     """
 
     ID = 'PROGRESS_BAR'

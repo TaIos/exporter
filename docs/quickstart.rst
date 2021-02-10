@@ -18,7 +18,7 @@ Examples
 | ``projects`` file format is described :doc:`here </projects_file_format>`.
 
 1. Export multiple projects
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: Bash
 
@@ -32,7 +32,7 @@ where content of file ``projects`` is
     my_other_gitlab_project
 
 2. Export, rename and set visibility for multiple projects
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: Bash
 
@@ -47,7 +47,7 @@ where content of file ``projects`` is
 
 
 3. Export all projects
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 Export all of your GitLab projects. Run at most ``batch-size`` exports simultaneously.
 

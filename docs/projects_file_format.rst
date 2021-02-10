@@ -8,7 +8,7 @@ Each line corresponds to one exported project. Format of each line is ::
 
 
 Example
-#######
+-------
 
 Below is an example of a valid project file. Every format is used here.
 

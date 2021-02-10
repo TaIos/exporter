@@ -7,7 +7,7 @@ Application uses them for accessing GitHub and GitLab API.
 
 
 Example
-#######
+-------
 
 Below is the only valid format of a config file.
 

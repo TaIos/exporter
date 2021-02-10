@@ -16,6 +16,7 @@ Check Quickstart :doc:`HERE </quickstart>` for examples.
    config_file_format
    return_codes
    testing
+   manpage
    modules
 
 

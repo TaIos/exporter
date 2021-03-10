@@ -2,7 +2,7 @@ import git
 import pytest
 import flexmock
 
-from exporter.exeptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
+from exporter.exceptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
 from exporter.logic import TaskFetchGitlabProject, ProgressBarWrapper
 
 SEARCH_OWNED_PROJECTS_RESPONSE = [

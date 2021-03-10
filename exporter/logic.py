@@ -9,7 +9,7 @@ import enlighten
 from threading import Thread
 from abc import ABC
 
-from .exeptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
+from .exceptions import MultipleGitLabProjectsExistException, NoGitLabProjectsExistException
 from .helpers import ensure_tmp_dir, rndstr, split_to_batches, flatten
 
 
